@@ -513,6 +513,12 @@
   async function openFloatingInSidePanel() {
     const payload = currentFloatingPayload;
     if (!payload?.prompt) {
+      hideFloatingWindow();
+      try {
+        await chrome.runtime.sendMessage({ action: 'openSidePanelFromFloating' });
+      } catch (error) {
+        console.warn('[insidebar.ai] Failed to open sidebar:', error);
+      }
       return;
     }
 

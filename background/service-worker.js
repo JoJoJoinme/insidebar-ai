@@ -380,6 +380,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'openFloatingAskFromSidebar') {
     handleOpenFloatingAskFromSidebar(message.payload).then(sendResponse);
     return true; // Keep channel open for async response
+  } else if (message.action === 'openSidePanelFromFloating') {
+    handleOpenSidePanelFromFloating(sender).then(sendResponse);
+    return true; // Keep channel open for async response
   } else if (message.action === 'openOptionsPage') {
     chrome.runtime.openOptionsPage().then(() => {
       sendResponse({ success: true });
@@ -410,7 +413,7 @@ async function handleSelectionToolbarSend(payload, sender) {
 }
 
 async function handleOpenFloatingAskFromSidebar(payload = {}) {
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const tab = await getActiveWebTab();
   if (!tab?.id) {
     return { success: false, error: 'No active tab found' };
   }
@@ -420,10 +423,7 @@ async function handleOpenFloatingAskFromSidebar(payload = {}) {
   }
 
   try {
-    await chrome.tabs.sendMessage(tab.id, {
-      action: 'openSelectionFloating',
-      payload: {}
-    });
+    await sendOpenSelectionFloating(tab.id);
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -433,6 +433,62 @@ async function handleOpenFloatingAskFromSidebar(payload = {}) {
   }
 
   return { success: true };
+}
+
+async function sendOpenSelectionFloating(tabId) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, {
+      action: 'openSelectionFloating',
+      payload: {}
+    });
+  } catch (error) {
+    await ensureSelectionToolbarContentScript(tabId);
+    return chrome.tabs.sendMessage(tabId, {
+      action: 'openSelectionFloating',
+      payload: {}
+    });
+  }
+}
+
+async function ensureSelectionToolbarContentScript(tabId) {
+  await chrome.scripting.insertCSS({
+    target: { tabId },
+    files: ['content-scripts/selection-toolbar.css']
+  });
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['content-scripts/selection-toolbar.js']
+  });
+}
+
+async function handleOpenSidePanelFromFloating(sender) {
+  const windowId = sender.tab?.windowId;
+  if (!windowId) {
+    return { success: false, error: 'Missing tab context' };
+  }
+
+  await chrome.sidePanel.open({ windowId });
+  sidePanelState.set(windowId, true);
+  return { success: true };
+}
+
+async function getActiveWebTab() {
+  const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (isInjectableTab(activeTab)) {
+    return activeTab;
+  }
+
+  const [currentWindowTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (isInjectableTab(currentWindowTab)) {
+    return currentWindowTab;
+  }
+
+  const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+  return tabs.find(isInjectableTab) || null;
+}
+
+function isInjectableTab(tab) {
+  return !!tab?.id && /^https?:\/\//.test(tab.url || '');
 }
 
 // T073: Handle version check by fetching latest commit from GitHub API

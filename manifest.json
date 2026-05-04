@@ -9,6 +9,7 @@
     "sidePanel",
     "storage",
     "contextMenus",
+    "scripting",
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",
     "clipboardRead"
