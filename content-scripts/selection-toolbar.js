@@ -26,8 +26,11 @@
 
   const MAX_SELECTION_LENGTH = 12000;
   const toolbarId = 'insidebar-selection-toolbar';
+  const askPanelId = 'insidebar-selection-ask-panel';
   let toolbar = null;
+  let askPanel = null;
   let selectedText = '';
+  let askPanelText = '';
   let hideTimer = null;
 
   if (PROVIDER_HOSTS.has(window.location.hostname) || window.top !== window) {
@@ -63,6 +66,57 @@
       toolbar = createToolbar();
     }
     return toolbar;
+  }
+
+  function createAskPanel() {
+    const element = document.createElement('div');
+    element.id = askPanelId;
+    element.hidden = true;
+
+    const textarea = document.createElement('textarea');
+    textarea.rows = 3;
+    textarea.placeholder = 'Ask about the selected text...';
+    textarea.setAttribute('aria-label', 'Ask about selected text');
+    textarea.addEventListener('keydown', handleAskKeydown);
+
+    const footer = document.createElement('div');
+    footer.className = 'insidebar-selection-ask-footer';
+
+    const hint = document.createElement('span');
+    hint.textContent = 'Ctrl/Cmd+Enter';
+
+    const actions = document.createElement('div');
+    actions.className = 'insidebar-selection-ask-actions';
+
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.dataset.action = 'cancel';
+    cancelButton.textContent = 'Cancel';
+    cancelButton.addEventListener('click', hideAskPanel);
+
+    const sendButton = document.createElement('button');
+    sendButton.type = 'button';
+    sendButton.dataset.action = 'send-question';
+    sendButton.textContent = 'Send';
+    sendButton.addEventListener('click', submitAskPanel);
+
+    actions.append(cancelButton, sendButton);
+    footer.append(hint, actions);
+    element.append(textarea, footer);
+
+    element.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+    });
+
+    document.documentElement.appendChild(element);
+    return element;
+  }
+
+  function getAskPanel() {
+    if (!askPanel || !document.documentElement.contains(askPanel)) {
+      askPanel = createAskPanel();
+    }
+    return askPanel;
   }
 
   function getSelectionInfo() {
@@ -120,6 +174,37 @@
     }
   }
 
+  function showAskPanel(anchorRect, text) {
+    askPanelText = text.slice(0, MAX_SELECTION_LENGTH);
+    const element = getAskPanel();
+    const textarea = element.querySelector('textarea');
+    textarea.value = '';
+    element.hidden = false;
+
+    const margin = 8;
+    const panelRect = element.getBoundingClientRect();
+    const topCandidate = anchorRect.bottom + margin;
+    const top = Math.min(
+      Math.max(margin, topCandidate),
+      window.innerHeight - panelRect.height - margin
+    );
+    const left = Math.min(
+      Math.max(anchorRect.left, margin),
+      window.innerWidth - panelRect.width - margin
+    );
+
+    element.style.top = `${top}px`;
+    element.style.left = `${left}px`;
+    textarea.focus();
+  }
+
+  function hideAskPanel() {
+    askPanelText = '';
+    if (askPanel) {
+      askPanel.hidden = true;
+    }
+  }
+
   function scheduleHide() {
     window.clearTimeout(hideTimer);
     hideTimer = window.setTimeout(() => {
@@ -148,24 +233,69 @@
     return `${prompts[action] || ''}'''\n${text}\n'''`;
   }
 
+  function buildAskPrompt(question, text) {
+    return `Answer the user's question about the selected content. Be concise and cite the relevant part when useful.\n\nQuestion:\n${question}\n\nSelected content:\n'''\n${text}\n'''`;
+  }
+
+  async function sendPrompt(prompt) {
+    await chrome.runtime.sendMessage({
+      action: 'selectionToolbarSend',
+      payload: {
+        prompt,
+        pageUrl: window.location.href
+      }
+    });
+  }
+
+  async function submitAskPanel() {
+    const element = getAskPanel();
+    const textarea = element.querySelector('textarea');
+    const question = textarea.value.trim();
+    if (!question || !askPanelText) {
+      return;
+    }
+
+    hideAskPanel();
+
+    try {
+      await sendPrompt(buildAskPrompt(question, askPanelText));
+    } catch (error) {
+      console.warn('[insidebar.ai] Failed to send selected text:', error);
+    }
+  }
+
+  function handleAskKeydown(event) {
+    if (event.key === 'Escape') {
+      hideAskPanel();
+      return;
+    }
+
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      submitAskPanel();
+    }
+  }
+
   async function handleActionClick(event) {
     const action = event.currentTarget.dataset.action;
-    const text = selectedText || getSelectionInfo()?.text;
+    const info = getSelectionInfo();
+    const text = selectedText || info?.text;
     if (!text) {
       hideToolbar();
+      return;
+    }
+
+    if (action === 'ask') {
+      const rect = info?.rect || event.currentTarget.getBoundingClientRect();
+      hideToolbar();
+      showAskPanel(rect, text);
       return;
     }
 
     hideToolbar();
 
     try {
-      await chrome.runtime.sendMessage({
-        action: 'selectionToolbarSend',
-        payload: {
-          prompt: buildPrompt(action, text.slice(0, MAX_SELECTION_LENGTH)),
-          pageUrl: window.location.href
-        }
-      });
+      await sendPrompt(buildPrompt(action, text.slice(0, MAX_SELECTION_LENGTH)));
     } catch (error) {
       console.warn('[insidebar.ai] Failed to send selected text:', error);
     }
@@ -182,6 +312,12 @@
   });
 
   document.addEventListener('selectionchange', scheduleHide);
-  document.addEventListener('scroll', hideToolbar, true);
-  window.addEventListener('resize', hideToolbar);
+  document.addEventListener('scroll', () => {
+    hideToolbar();
+    hideAskPanel();
+  }, true);
+  window.addEventListener('resize', () => {
+    hideToolbar();
+    hideAskPanel();
+  });
 })();
