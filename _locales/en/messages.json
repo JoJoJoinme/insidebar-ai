@@ -142,6 +142,12 @@
   "descAutoPaste": {
     "message": "Automatically paste clipboard content to workspace when opening Prompt Library with Command+Shift+P"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "Auto-submit Selection Toolbar Prompts"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "After selected text is sent to the sidebar, automatically click the provider send button."
+  },
 
   "sectionChatHistory": {
     "message": "Chat History"
@@ -341,6 +347,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "Auto-paste disabled"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "Selection toolbar auto-submit enabled"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "Selection toolbar auto-submit disabled"
   },
   "msgAutoOpenEnabled": {
     "message": "Auto-open sidebar enabled"

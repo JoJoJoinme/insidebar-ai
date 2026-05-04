@@ -138,6 +138,12 @@
   "descAutoPaste": {
     "message": "使用 Command + Shift + P 打开提示词库时自动将剪贴板内容粘贴到工作区"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "自动发送划词工具栏提示词"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "划词内容发送到侧边栏后，自动点击当前 AI 提供商的发送按钮。"
+  },
   "sectionChatHistory": {
     "message": "聊天历史"
   },
@@ -331,6 +337,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "自动粘贴已禁用"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "划词工具栏自动发送已启用"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "划词工具栏自动发送已禁用"
   },
   "msgAutoOpenEnabled": {
     "message": "自动打开侧边栏已启用"

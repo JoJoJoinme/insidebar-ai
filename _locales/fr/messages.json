@@ -142,6 +142,12 @@
   "descAutoPaste": {
     "message": "Coller automatiquement le contenu du presse-papiers dans l'espace de travail lors de l'ouverture de la bibliothèque de prompts avec Command+Maj+P"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "Auto-submit Selection Toolbar Prompts"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "After selected text is sent to the sidebar, automatically click the provider send button."
+  },
 
   "sectionChatHistory": {
     "message": "Historique des conversations"
@@ -341,6 +347,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "Collage automatique désactivé"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "Selection toolbar auto-submit enabled"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "Selection toolbar auto-submit disabled"
   },
   "msgAutoOpenEnabled": {
     "message": "Ouverture automatique de la barre latérale activée"

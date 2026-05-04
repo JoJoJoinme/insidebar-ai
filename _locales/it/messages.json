@@ -142,6 +142,12 @@
   "descAutoPaste": {
     "message": "Incolla automaticamente il contenuto degli appunti nell'area di lavoro quando si apre la Libreria Prompt con Command+Shift+P"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "Auto-submit Selection Toolbar Prompts"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "After selected text is sent to the sidebar, automatically click the provider send button."
+  },
 
   "sectionChatHistory": {
     "message": "Cronologia chat"
@@ -341,6 +347,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "Incolla automatico disattivato"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "Selection toolbar auto-submit enabled"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "Selection toolbar auto-submit disabled"
   },
   "msgAutoOpenEnabled": {
     "message": "Apertura automatica barra laterale attivata"

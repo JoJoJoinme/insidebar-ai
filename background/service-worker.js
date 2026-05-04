@@ -12,6 +12,55 @@ let keyboardShortcutEnabled = true;
 // T070: Track side panel state per window
 const sidePanelState = new Map(); // windowId -> boolean (true = open, false = closed)
 
+async function getDefaultProviderId() {
+  const settings = await chrome.storage.sync.get({
+    lastSelectedProvider: 'chatgpt',
+    defaultProvider: 'chatgpt',
+    rememberLastProvider: true,
+    enabledProviders: ['chatgpt', 'claude', 'gemini', 'google', 'grok', 'deepseek', 'copilot']
+  });
+
+  const preferredProvider = settings.rememberLastProvider
+    ? (settings.lastSelectedProvider || settings.defaultProvider)
+    : settings.defaultProvider;
+
+  if (settings.enabledProviders.includes(preferredProvider)) {
+    return preferredProvider;
+  }
+
+  return settings.enabledProviders[0] || 'chatgpt';
+}
+
+async function formatContentWithSource(text, pageUrl) {
+  const settings = await chrome.storage.sync.get({ sourceUrlPlacement: 'end' });
+  const placement = settings.sourceUrlPlacement;
+
+  if (!pageUrl || placement === 'none') {
+    return text;
+  }
+
+  if (placement === 'beginning') {
+    return `Source: ${pageUrl}\n\n${text}`;
+  }
+
+  return `${text}\n\nSource: ${pageUrl}`;
+}
+
+async function sendTextToProvider(windowId, providerId, selectedText, options = {}) {
+  setTimeout(() => {
+    notifyMessage({
+      action: 'switchProvider',
+      payload: {
+        providerId,
+        selectedText,
+        autoSubmit: options.autoSubmit === true
+      }
+    }).catch(() => {
+      // Sidebar may not be ready yet, silently ignore
+    });
+  }, 100);
+}
+
 async function loadShortcutSetting() {
   try {
     const result = await chrome.storage.sync.get(DEFAULT_SHORTCUT_SETTING);
@@ -325,9 +374,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // T073: Handle version check request from options page
     handleFetchLatestCommit().then(sendResponse);
     return true; // Keep channel open for async response
+  } else if (message.action === 'selectionToolbarSend') {
+    handleSelectionToolbarSend(message.payload, sender).then(sendResponse);
+    return true; // Keep channel open for async response
   }
   return true;
 });
+
+async function handleSelectionToolbarSend(payload, sender) {
+  if (!sender.tab?.windowId || !payload?.prompt) {
+    return { success: false, error: 'Missing selected text or tab context' };
+  }
+
+  await chrome.sidePanel.open({ windowId: sender.tab.windowId });
+  sidePanelState.set(sender.tab.windowId, true);
+
+  const providerId = await getDefaultProviderId();
+  const settings = await chrome.storage.sync.get({ selectionToolbarAutoSubmit: false });
+  const selectedText = await formatContentWithSource(payload.prompt, payload.pageUrl);
+  await sendTextToProvider(sender.tab.windowId, providerId, selectedText, {
+    autoSubmit: settings.selectionToolbarAutoSubmit === true
+  });
+
+  return { success: true, providerId };
+}
 
 // T073: Handle version check by fetching latest commit from GitHub API
 async function handleFetchLatestCommit() {

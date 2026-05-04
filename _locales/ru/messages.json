@@ -142,6 +142,12 @@
   "descAutoPaste": {
     "message": "Автоматически вставлять содержимое буфера обмена в рабочее пространство при открытии библиотеки промптов с помощью Command+Shift+P"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "Auto-submit Selection Toolbar Prompts"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "After selected text is sent to the sidebar, automatically click the provider send button."
+  },
 
   "sectionChatHistory": {
     "message": "История чатов"
@@ -341,6 +347,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "Автовставка отключена"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "Selection toolbar auto-submit enabled"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "Selection toolbar auto-submit disabled"
   },
   "msgAutoOpenEnabled": {
     "message": "Автооткрытие боковой панели включено"

@@ -142,6 +142,12 @@
   "descAutoPaste": {
     "message": "Pega automáticamente el contenido del portapapeles en el espacio de trabajo al abrir la Biblioteca de Prompts con Command+Shift+P"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "Auto-submit Selection Toolbar Prompts"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "After selected text is sent to the sidebar, automatically click the provider send button."
+  },
 
   "sectionChatHistory": {
     "message": "Historial de Chat"
@@ -341,6 +347,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "Pegado automático deshabilitado"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "Selection toolbar auto-submit enabled"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "Selection toolbar auto-submit disabled"
   },
   "msgAutoOpenEnabled": {
     "message": "Apertura automática de barra lateral habilitada"

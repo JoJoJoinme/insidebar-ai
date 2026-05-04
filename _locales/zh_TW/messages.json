@@ -138,6 +138,12 @@
   "descAutoPaste": {
     "message": "使用 Command + Shift + P 開啟提示詞庫時自動將剪貼簿內容貼上到工作區"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "自動送出劃詞工具列提示詞"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "劃詞內容送到側邊欄後，自動點擊目前 AI 提供者的送出按鈕。"
+  },
   "sectionChatHistory": {
     "message": "聊天記錄"
   },
@@ -329,6 +335,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "自動貼上已停用"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "劃詞工具列自動送出已啟用"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "劃詞工具列自動送出已停用"
   },
   "msgAutoOpenEnabled": {
     "message": "自動開啟側邊欄已啟用"

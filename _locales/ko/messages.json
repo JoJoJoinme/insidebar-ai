@@ -138,6 +138,12 @@
   "descAutoPaste": {
     "message": "Command + Shift + P 로 프롬프트 라이브러리를 열 때 작업 영역에 클립보드 내용을 자동으로 붙여넣습니다"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "Auto-submit Selection Toolbar Prompts"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "After selected text is sent to the sidebar, automatically click the provider send button."
+  },
   "sectionChatHistory": {
     "message": "채팅 기록"
   },
@@ -329,6 +335,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "자동 붙여넣기가 비활성화되었습니다"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "Selection toolbar auto-submit enabled"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "Selection toolbar auto-submit disabled"
   },
   "msgAutoOpenEnabled": {
     "message": "자동 사이드바 열기가 활성화되었습니다"

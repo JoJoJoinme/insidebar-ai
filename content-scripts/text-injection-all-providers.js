@@ -21,6 +21,45 @@
     copilot: ['textarea#userInput', 'textarea[data-testid="composer-input"]', 'textarea[placeholder*="Message Copilot"]']
   };
 
+  const PROVIDER_SEND_BUTTON_SELECTORS = {
+    chatgpt: [
+      'button[data-testid="send-button"]',
+      'button[data-testid="composer-send-button"]',
+      '#composer-submit-button',
+      'button[aria-label*="Send"]'
+    ],
+    claude: [
+      'button[aria-label*="Send"]',
+      'button[data-testid="send-button"]',
+      'button[type="submit"]'
+    ],
+    gemini: [
+      'button[aria-label*="Send"]',
+      'button[aria-label*="Submit"]',
+      'button.send-button'
+    ],
+    grok: [
+      'button[aria-label*="Send"]',
+      'button[data-testid="send-button"]',
+      'button[type="submit"]'
+    ],
+    deepseek: [
+      'button[aria-label*="Send"]',
+      'button[type="submit"]'
+    ],
+    google: [
+      'button[aria-label*="Send"]',
+      'button[aria-label*="Submit"]',
+      'button[type="submit"]'
+    ],
+    copilot: [
+      'button[data-testid="submit-button"]',
+      'button[data-testid="send-button"]',
+      'button[aria-label*="Submit"]',
+      'button[aria-label*="Send"]'
+    ]
+  };
+
   // Detect which provider we're on based on hostname
   function detectProvider() {
     const hostname = window.location.hostname;
@@ -114,6 +153,70 @@
     }
   }
 
+  function isClickableButton(button) {
+    if (!button) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(button);
+    return (
+      !button.disabled &&
+      button.getAttribute('aria-disabled') !== 'true' &&
+      style.display !== 'none' &&
+      style.visibility !== 'hidden' &&
+      button.offsetParent !== null
+    );
+  }
+
+  function findSendButton(provider) {
+    const selectors = PROVIDER_SEND_BUTTON_SELECTORS[provider] || [];
+
+    for (const selector of selectors) {
+      try {
+        const buttons = Array.from(document.querySelectorAll(selector));
+        const button = buttons.find(isClickableButton);
+        if (button) {
+          return button;
+        }
+      } catch (error) {
+        console.error('Error finding send button:', error);
+      }
+    }
+
+    return Array.from(document.querySelectorAll('button')).find((button) => {
+      const label = [
+        button.getAttribute('aria-label'),
+        button.getAttribute('title'),
+        button.textContent
+      ].filter(Boolean).join(' ');
+
+      return isClickableButton(button) && /\b(send|submit)\b/i.test(label);
+    }) || null;
+  }
+
+  function autoSubmitPrompt(provider) {
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const tryClick = () => {
+      attempts += 1;
+      const button = findSendButton(provider);
+
+      if (button) {
+        button.click();
+        return;
+      }
+
+      if (attempts < maxAttempts) {
+        setTimeout(tryClick, 150);
+      } else {
+        console.warn(`[Text Injection] Send button not found for ${provider}`);
+      }
+    };
+
+    setTimeout(tryClick, 250);
+  }
+
   // Handle text injection message
   function handleTextInjection(event) {
     // Validate event data structure
@@ -128,6 +231,7 @@
 
     // Validate text payload
     const text = event.data.text;
+    const autoSubmit = event.data.autoSubmit === true;
     if (!text || typeof text !== 'string' || text.length === 0) {
       console.warn('[Text Injection] Invalid text payload');
       return;
@@ -162,6 +266,8 @@
       const success = injectTextIntoElement(element, text);
       if (!success) {
         console.error(`[Text Injection] Failed to inject text into ${provider}`);
+      } else if (autoSubmit) {
+        autoSubmitPrompt(provider);
       }
     } else {
       // Retry after a short delay in case page is still loading
@@ -174,7 +280,10 @@
           }
         }
         if (retryElement) {
-          injectTextIntoElement(retryElement, text);
+          const success = injectTextIntoElement(retryElement, text);
+          if (success && autoSubmit) {
+            autoSubmitPrompt(provider);
+          }
         } else {
           console.error(`[Text Injection] ${provider} editor not found`);
         }

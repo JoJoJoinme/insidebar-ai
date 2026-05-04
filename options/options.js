@@ -171,6 +171,11 @@ async function loadSettings() {
     autoPasteToggle.checked = settings.autoPasteClipboard === true;
   }
 
+  const selectionToolbarAutoSubmitToggle = document.getElementById('selection-toolbar-auto-submit-toggle');
+  if (selectionToolbarAutoSubmitToggle) {
+    selectionToolbarAutoSubmitToggle.checked = settings.selectionToolbarAutoSubmit === true;
+  }
+
   // Auto-open sidebar after save setting
   const autoOpenSidebarToggle = document.getElementById('auto-open-sidebar-toggle');
   if (autoOpenSidebarToggle) {
@@ -391,6 +396,15 @@ function setupEventListeners() {
       const enabled = e.target.checked;
       await saveSetting('autoPasteClipboard', enabled);
       showStatus('success', enabled ? t('msgAutoPasteEnabled') : t('msgAutoPasteDisabled'));
+    });
+  }
+
+  const selectionToolbarAutoSubmitToggle = document.getElementById('selection-toolbar-auto-submit-toggle');
+  if (selectionToolbarAutoSubmitToggle) {
+    selectionToolbarAutoSubmitToggle.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      await saveSetting('selectionToolbarAutoSubmit', enabled);
+      showStatus('success', enabled ? t('msgSelectionToolbarAutoSubmitEnabled') : t('msgSelectionToolbarAutoSubmitDisabled'));
     });
   }
 

@@ -138,6 +138,12 @@
   "descAutoPaste": {
     "message": "Command + Shift + P でプロンプトライブラリを開くときに、ワークスペースにクリップボードの内容を自動的に貼り付けます"
   },
+  "labelSelectionToolbarAutoSubmit": {
+    "message": "Auto-submit Selection Toolbar Prompts"
+  },
+  "descSelectionToolbarAutoSubmit": {
+    "message": "After selected text is sent to the sidebar, automatically click the provider send button."
+  },
   "sectionChatHistory": {
     "message": "チャット履歴"
   },
@@ -329,6 +335,12 @@
   },
   "msgAutoPasteDisabled": {
     "message": "自動貼り付けが無効になりました"
+  },
+  "msgSelectionToolbarAutoSubmitEnabled": {
+    "message": "Selection toolbar auto-submit enabled"
+  },
+  "msgSelectionToolbarAutoSubmitDisabled": {
+    "message": "Selection toolbar auto-submit disabled"
   },
   "msgAutoOpenEnabled": {
     "message": "サイドバーの自動オープンが有効になりました"

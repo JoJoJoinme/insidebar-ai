@@ -13,7 +13,7 @@ describe('providers module', () => {
 
   describe('PROVIDERS constant', () => {
     it('should contain all expected providers', () => {
-      expect(PROVIDERS).toHaveLength(6);
+      expect(PROVIDERS).toHaveLength(7);
       const providerIds = PROVIDERS.map((p) => p.id);
       expect(providerIds).toEqual([
         'chatgpt',
@@ -21,6 +21,7 @@ describe('providers module', () => {
         'gemini',
         'google',
         'grok',
+        'copilot',
         'deepseek',
       ]);
     });

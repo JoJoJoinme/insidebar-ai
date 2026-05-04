@@ -320,7 +320,9 @@ function setupMessageListener() {
 
           // If there's selected text, inject it into the provider iframe
           if (message.payload.selectedText) {
-            await injectTextIntoProvider(message.payload.providerId, message.payload.selectedText);
+            await injectTextIntoProvider(message.payload.providerId, message.payload.selectedText, {
+              autoSubmit: message.payload.autoSubmit === true
+            });
           }
 
           sendResponse({ success: true });
@@ -462,7 +464,7 @@ async function waitForIframeReady(providerId) {
 }
 
 // Inject selected text into provider iframe
-async function injectTextIntoProvider(providerId, text) {
+async function injectTextIntoProvider(providerId, text, options = {}) {
   if (!text || !providerId) {
     return;
   }
@@ -481,7 +483,8 @@ async function injectTextIntoProvider(providerId, text) {
     iframe.contentWindow.postMessage(
       {
         type: 'INJECT_TEXT',
-        text: text
+        text: text,
+        autoSubmit: options.autoSubmit === true
       },
       '*' // We're posting to same-origin AI provider domains
     );

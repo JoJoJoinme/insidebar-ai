@@ -28,7 +28,8 @@
     "*://copilot.microsoft.com/*",
     "*://www.bing.com/*",
     "*://bing.com/*",
-    "*://api.github.com/*"
+    "*://api.github.com/*",
+    "<all_urls>"
   ],
 
   "optional_host_permissions": [
@@ -216,8 +217,10 @@
       "matches": ["<all_urls>"],
       "js": [
         "libs/Readability.js",
-        "content-scripts/page-content-extractor.js"
+        "content-scripts/page-content-extractor.js",
+        "content-scripts/selection-toolbar.js"
       ],
+      "css": ["content-scripts/selection-toolbar.css"],
       "run_at": "document_idle",
       "all_frames": false
     }

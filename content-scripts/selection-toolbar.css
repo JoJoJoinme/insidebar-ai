@@ -1,0 +1,50 @@
+#insidebar-selection-toolbar {
+  position: fixed;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  color: #111827;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+}
+
+#insidebar-selection-toolbar[hidden] {
+  display: none;
+}
+
+#insidebar-selection-toolbar button {
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#insidebar-selection-toolbar button:hover,
+#insidebar-selection-toolbar button:focus-visible {
+  background: #eef2ff;
+  outline: none;
+}
+
+#insidebar-selection-toolbar button[data-action="send"] {
+  background: #111827;
+  color: #ffffff;
+}
+
+#insidebar-selection-toolbar button[data-action="send"]:hover,
+#insidebar-selection-toolbar button[data-action="send"]:focus-visible {
+  background: #374151;
+}
