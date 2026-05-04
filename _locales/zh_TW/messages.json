@@ -142,7 +142,7 @@
     "message": "自動送出劃詞工具列提示詞"
   },
   "descSelectionToolbarAutoSubmit": {
-    "message": "劃詞內容送到側邊欄後，自動點擊目前 AI 提供者的送出按鈕。"
+    "message": "劃詞內容從工具列送出後，自動點擊目前 AI 提供商的送出按鈕。"
   },
   "sectionChatHistory": {
     "message": "聊天記錄"
@@ -860,5 +860,21 @@
         "content": "$1"
       }
     }
+  },
+
+  "labelSelectionToolbarOpenMode": {
+    "message": "劃詞工具列開啟方式"
+  },
+  "descSelectionToolbarOpenMode": {
+    "message": "選擇劃詞工具列操作開啟浮動聊天視窗還是側邊欄。"
+  },
+  "selectionToolbarOpenModeFloating": {
+    "message": "浮動視窗"
+  },
+  "selectionToolbarOpenModeSidebar": {
+    "message": "側邊欄"
+  },
+  "msgSelectionToolbarOpenModeUpdated": {
+    "message": "劃詞工具列開啟方式已更新"
   }
 }

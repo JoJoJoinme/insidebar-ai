@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
   theme: 'auto',
   keyboardShortcutEnabled: true,
   selectionToolbarAutoSubmit: false,
+  selectionToolbarOpenMode: 'floating',
   enterKeyBehavior: {
     enabled: true,
     preset: 'swapped',  // 'default', 'swapped', 'slack', 'discord', 'custom'

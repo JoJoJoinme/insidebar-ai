@@ -393,7 +393,7 @@ async function handleSelectionToolbarSend(payload, sender) {
   const settings = await chrome.storage.sync.get({ selectionToolbarAutoSubmit: false });
   const selectedText = await formatContentWithSource(payload.prompt, payload.pageUrl);
   await sendTextToProvider(sender.tab.windowId, providerId, selectedText, {
-    autoSubmit: settings.selectionToolbarAutoSubmit === true
+    autoSubmit: payload.autoSubmit === true || settings.selectionToolbarAutoSubmit === true
   });
 
   return { success: true, providerId };

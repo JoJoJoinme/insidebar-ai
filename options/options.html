@@ -296,9 +296,24 @@
 
         <div class="setting-item">
           <div class="setting-info">
+            <div class="setting-label" data-i18n="labelSelectionToolbarOpenMode">Selection Toolbar Opens</div>
+            <div class="setting-description" data-i18n="descSelectionToolbarOpenMode">
+              Choose whether selection toolbar actions open a floating chat window or the side panel.
+            </div>
+          </div>
+          <div class="setting-control">
+            <select id="selection-toolbar-open-mode-select">
+              <option value="floating" data-i18n="selectionToolbarOpenModeFloating">Floating window</option>
+              <option value="sidePanel" data-i18n="selectionToolbarOpenModeSidebar">Sidebar</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-info">
             <div class="setting-label" data-i18n="labelSelectionToolbarAutoSubmit">Auto-submit Selection Toolbar Prompts</div>
             <div class="setting-description" data-i18n="descSelectionToolbarAutoSubmit">
-              After selected text is sent to the sidebar, automatically click the provider send button.
+              After selected text is sent from the toolbar, automatically click the provider send button.
             </div>
           </div>
           <div class="setting-control">

@@ -176,6 +176,13 @@ async function loadSettings() {
     selectionToolbarAutoSubmitToggle.checked = settings.selectionToolbarAutoSubmit === true;
   }
 
+  const selectionToolbarOpenModeSelect = document.getElementById('selection-toolbar-open-mode-select');
+  if (selectionToolbarOpenModeSelect) {
+    selectionToolbarOpenModeSelect.value = settings.selectionToolbarOpenMode === 'sidePanel'
+      ? 'sidePanel'
+      : 'floating';
+  }
+
   // Auto-open sidebar after save setting
   const autoOpenSidebarToggle = document.getElementById('auto-open-sidebar-toggle');
   if (autoOpenSidebarToggle) {
@@ -405,6 +412,15 @@ function setupEventListeners() {
       const enabled = e.target.checked;
       await saveSetting('selectionToolbarAutoSubmit', enabled);
       showStatus('success', enabled ? t('msgSelectionToolbarAutoSubmitEnabled') : t('msgSelectionToolbarAutoSubmitDisabled'));
+    });
+  }
+
+  const selectionToolbarOpenModeSelect = document.getElementById('selection-toolbar-open-mode-select');
+  if (selectionToolbarOpenModeSelect) {
+    selectionToolbarOpenModeSelect.addEventListener('change', async (e) => {
+      const openMode = e.target.value === 'sidePanel' ? 'sidePanel' : 'floating';
+      await saveSetting('selectionToolbarOpenMode', openMode);
+      showStatus('success', t('msgSelectionToolbarOpenModeUpdated'));
     });
   }
 

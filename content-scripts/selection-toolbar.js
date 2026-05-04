@@ -25,6 +25,7 @@
   ];
 
   const MAX_SELECTION_LENGTH = 12000;
+  const DEFAULT_OPEN_MODE = 'floating';
   const toolbarId = 'insidebar-selection-toolbar';
   const askPanelId = 'insidebar-selection-ask-panel';
   const floatingWindowId = 'insidebar-selection-floating-window';
@@ -33,14 +34,27 @@
   let floatingWindow = null;
   let floatingFrame = null;
   let floatingFrameReady = false;
+  let floatingPreloadRequested = false;
+  let floatingPreloadSent = false;
   let pendingFloatingPayload = null;
   let selectedText = '';
   let askPanelText = '';
   let askPanelAnchorRect = null;
+  let selectionToolbarOpenMode = DEFAULT_OPEN_MODE;
   let hideTimer = null;
 
   if (PROVIDER_HOSTS.has(window.location.hostname) || window.top !== window) {
     return;
+  }
+
+  loadSelectionToolbarOpenMode();
+
+  if (chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'sync' && changes.selectionToolbarOpenMode) {
+        selectionToolbarOpenMode = normalizeOpenMode(changes.selectionToolbarOpenMode.newValue);
+      }
+    });
   }
 
   function createToolbar() {
@@ -166,6 +180,7 @@
     frame.src = chrome.runtime.getURL('floating/floating.html');
     frame.addEventListener('load', () => {
       floatingFrameReady = true;
+      flushFloatingPreload();
       flushFloatingPayload();
     });
 
@@ -181,6 +196,8 @@
   function getFloatingWindow() {
     if (!floatingWindow || !document.documentElement.contains(floatingWindow)) {
       floatingFrameReady = false;
+      floatingPreloadRequested = false;
+      floatingPreloadSent = false;
       floatingFrame = null;
       floatingWindow = createFloatingWindow();
     }
@@ -210,6 +227,24 @@
     return { text, rect };
   }
 
+  function loadSelectionToolbarOpenMode() {
+    try {
+      chrome.storage.sync.get({ selectionToolbarOpenMode: DEFAULT_OPEN_MODE }, (settings) => {
+        if (chrome.runtime.lastError) {
+          selectionToolbarOpenMode = DEFAULT_OPEN_MODE;
+          return;
+        }
+        selectionToolbarOpenMode = normalizeOpenMode(settings.selectionToolbarOpenMode);
+      });
+    } catch (error) {
+      selectionToolbarOpenMode = DEFAULT_OPEN_MODE;
+    }
+  }
+
+  function normalizeOpenMode(value) {
+    return value === 'sidePanel' ? 'sidePanel' : DEFAULT_OPEN_MODE;
+  }
+
   function showToolbar() {
     window.clearTimeout(hideTimer);
 
@@ -234,6 +269,7 @@
 
     element.style.top = `${Math.max(margin, top)}px`;
     element.style.left = `${left}px`;
+    requestFloatingPreload();
   }
 
   function hideToolbar() {
@@ -317,12 +353,13 @@
     return `Answer the user's question about the selected content. Be concise and cite the relevant part when useful.\n\nQuestion:\n${question}\n\nSelected content:\n'''\n${text}\n'''`;
   }
 
-  async function sendPrompt(prompt) {
+  async function sendPrompt(prompt, options = {}) {
     await chrome.runtime.sendMessage({
       action: 'selectionToolbarSend',
       payload: {
         prompt,
-        pageUrl: window.location.href
+        pageUrl: window.location.href,
+        autoSubmit: options.autoSubmit === true
       }
     });
   }
@@ -339,13 +376,26 @@
 
     hideAskPanel();
 
-    openFloatingConversation({
+    const payload = {
+      action: 'ask',
+      actionLabel: getActionLabel('ask'),
       question,
       selectedText: text,
       prompt: buildAskPrompt(question, text),
       pageUrl: window.location.href,
       autoSubmit: true
-    }, anchorRect);
+    };
+
+    if (selectionToolbarOpenMode === 'sidePanel') {
+      try {
+        await sendPrompt(payload.prompt, { autoSubmit: true });
+      } catch (error) {
+        console.warn('[insidebar.ai] Failed to send selected text:', error);
+      }
+      return;
+    }
+
+    openFloatingConversation(payload, anchorRect);
   }
 
   function openFloatingConversation(payload, anchorRect) {
@@ -371,6 +421,26 @@
 
     floatingFrame.contentWindow.postMessage(pendingFloatingPayload, '*');
     pendingFloatingPayload = null;
+  }
+
+  function requestFloatingPreload() {
+    if (selectionToolbarOpenMode !== 'floating' || floatingPreloadSent || floatingPreloadRequested) {
+      return;
+    }
+
+    floatingPreloadRequested = true;
+    getFloatingWindow();
+    flushFloatingPreload();
+  }
+
+  function flushFloatingPreload() {
+    if (!floatingPreloadRequested || !floatingFrameReady || !floatingFrame?.contentWindow) {
+      return;
+    }
+
+    floatingFrame.contentWindow.postMessage({ type: 'INSIDEBAR_FLOATING_PRELOAD' }, '*');
+    floatingPreloadRequested = false;
+    floatingPreloadSent = true;
   }
 
   function positionFloatingWindow(element, anchorRect) {
@@ -473,7 +543,7 @@
   async function handleActionClick(event) {
     const action = event.currentTarget.dataset.action;
     const info = getSelectionInfo();
-    const text = selectedText || info?.text;
+    const text = (selectedText || info?.text || '').slice(0, MAX_SELECTION_LENGTH);
     if (!text) {
       hideToolbar();
       return;
@@ -487,12 +557,29 @@
     }
 
     hideToolbar();
+    const prompt = buildPrompt(action, text);
 
-    try {
-      await sendPrompt(buildPrompt(action, text.slice(0, MAX_SELECTION_LENGTH)));
-    } catch (error) {
-      console.warn('[insidebar.ai] Failed to send selected text:', error);
+    if (selectionToolbarOpenMode === 'sidePanel') {
+      try {
+        await sendPrompt(prompt);
+      } catch (error) {
+        console.warn('[insidebar.ai] Failed to send selected text:', error);
+      }
+      return;
     }
+
+    openFloatingConversation({
+      action,
+      actionLabel: getActionLabel(action),
+      selectedText: text,
+      prompt,
+      pageUrl: window.location.href,
+      autoSubmit: false
+    }, info?.rect || event.currentTarget.getBoundingClientRect());
+  }
+
+  function getActionLabel(action) {
+    return ACTIONS.find((item) => item.id === action)?.label || 'Ask';
   }
 
   document.addEventListener('mouseup', () => {

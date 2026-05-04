@@ -142,7 +142,7 @@
     "message": "Auto-submit Selection Toolbar Prompts"
   },
   "descSelectionToolbarAutoSubmit": {
-    "message": "After selected text is sent to the sidebar, automatically click the provider send button."
+    "message": "After selected text is sent from the toolbar, automatically click the provider send button."
   },
   "sectionChatHistory": {
     "message": "채팅 기록"
@@ -860,5 +860,21 @@
         "content": "$1"
       }
     }
+  },
+
+  "labelSelectionToolbarOpenMode": {
+    "message": "Selection Toolbar Opens"
+  },
+  "descSelectionToolbarOpenMode": {
+    "message": "Choose whether selection toolbar actions open a floating chat window or the side panel."
+  },
+  "selectionToolbarOpenModeFloating": {
+    "message": "Floating window"
+  },
+  "selectionToolbarOpenModeSidebar": {
+    "message": "Sidebar"
+  },
+  "msgSelectionToolbarOpenModeUpdated": {
+    "message": "Selection toolbar open mode updated"
   }
 }

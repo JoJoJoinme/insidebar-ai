@@ -25,25 +25,47 @@ let providerIframeLoadPromise = null;
 
 window.addEventListener('message', (event) => {
   const data = event.data;
-  if (!data || data.type !== 'INSIDEBAR_FLOATING_PROMPT') {
+  if (!data) {
     return;
   }
 
-  handlePrompt(data.payload).catch((error) => {
-    console.warn('[insidebar.ai] Floating Ask failed:', error);
-    setStatus(error.message || 'Unable to open the floating Ask window.');
-  });
+  if (data.type === 'INSIDEBAR_FLOATING_PRELOAD') {
+    handlePreload().catch((error) => {
+      console.warn('[insidebar.ai] Floating provider preload failed:', error);
+    });
+    return;
+  }
+
+  if (data.type === 'INSIDEBAR_FLOATING_PROMPT') {
+    handlePrompt(data.payload).catch((error) => {
+      console.warn('[insidebar.ai] Floating Ask failed:', error);
+      setStatus(error.message || 'Unable to open the floating Ask window.');
+    });
+  }
 });
 
 notifyParent('insidebar.ai Ask');
+
+async function handlePreload() {
+  if (providerIframe || providerIframeLoadPromise) {
+    return;
+  }
+
+  const providerId = await getDefaultProviderId();
+  const provider = await getProviderByIdWithSettings(providerId);
+  if (!provider) {
+    return;
+  }
+
+  notifyParent(`insidebar.ai Ask - ${provider.name}`);
+  setStatus('Opening provider...');
+  await loadProvider(provider);
+}
 
 async function handlePrompt(payload) {
   if (!payload?.prompt) {
     return;
   }
-
-  setReference(payload.question, payload.selectedText);
-  setStatus('Opening provider...');
 
   const providerId = await getDefaultProviderId();
   const provider = await getProviderByIdWithSettings(providerId);
@@ -51,6 +73,10 @@ async function handlePrompt(payload) {
     throw new Error(`Provider ${providerId} not found.`);
   }
 
+  setReference(payload);
+  if (!providerIframe || providerIframeId !== provider.id) {
+    setStatus('Opening provider...');
+  }
   notifyParent(`insidebar.ai Ask - ${provider.name}`);
   await loadProvider(provider);
 
@@ -132,6 +158,7 @@ async function loadProvider(provider) {
   });
 
   providerShell.appendChild(providerIframe);
+  status.hidden = true;
   await providerIframeLoadPromise;
 }
 
@@ -158,16 +185,19 @@ function injectPrompt(prompt, autoSubmit) {
   }, '*');
 }
 
-function setReference(question, selectedText) {
-  const cleanQuestion = typeof question === 'string' ? question.trim() : '';
-  const cleanText = typeof selectedText === 'string' ? selectedText.trim() : '';
+function setReference(payload) {
+  const cleanQuestion = typeof payload.question === 'string' ? payload.question.trim() : '';
+  const cleanAction = typeof payload.actionLabel === 'string' ? payload.actionLabel.trim() : '';
+  const cleanText = typeof payload.selectedText === 'string' ? payload.selectedText.trim() : '';
 
-  if (!cleanQuestion && !cleanText) {
+  if (!cleanQuestion && !cleanAction && !cleanText) {
     reference.hidden = true;
     return;
   }
 
-  referenceQuestion.textContent = cleanQuestion ? `Question: ${cleanQuestion}` : '';
+  referenceQuestion.textContent = cleanQuestion
+    ? `Question: ${cleanQuestion}`
+    : (cleanAction ? `Action: ${cleanAction}` : '');
   referenceText.textContent = truncateText(cleanText, MAX_PREVIEW_LENGTH);
   referenceText.title = cleanText;
   reference.hidden = false;

@@ -142,7 +142,7 @@
     "message": "自动发送划词工具栏提示词"
   },
   "descSelectionToolbarAutoSubmit": {
-    "message": "划词内容发送到侧边栏后，自动点击当前 AI 提供商的发送按钮。"
+    "message": "划词内容从工具栏发送后，自动点击当前 AI 提供商的发送按钮。"
   },
   "sectionChatHistory": {
     "message": "聊天历史"
@@ -861,5 +861,21 @@
         "content": "$1"
       }
     }
+  },
+
+  "labelSelectionToolbarOpenMode": {
+    "message": "划词工具栏打开方式"
+  },
+  "descSelectionToolbarOpenMode": {
+    "message": "选择划词工具栏操作打开浮动聊天窗口还是侧边栏。"
+  },
+  "selectionToolbarOpenModeFloating": {
+    "message": "浮动窗口"
+  },
+  "selectionToolbarOpenModeSidebar": {
+    "message": "侧边栏"
+  },
+  "msgSelectionToolbarOpenModeUpdated": {
+    "message": "划词工具栏打开方式已更新"
   }
 }
