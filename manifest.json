@@ -241,11 +241,15 @@
       "resources": [
         "data/prompt-libraries/default-prompts.json",
         "data/version-info.json",
+        "floating/floating.html",
+        "floating/floating.css",
+        "floating/floating.js",
+        "modules/providers.js",
         "_locales/en/messages.json",
         "_locales/zh_CN/messages.json",
         "_locales/zh_TW/messages.json"
       ],
-      "matches": ["<all_urls>"]
+      "matches": ["http://*/*", "https://*/*"]
     }
   ],
 

@@ -83,6 +83,32 @@
   user-select: text;
 }
 
+.insidebar-selection-ask-quote {
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.insidebar-selection-ask-quote-label {
+  margin-bottom: 4px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.insidebar-selection-ask-quote-text {
+  max-height: 88px;
+  overflow: auto;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
 #insidebar-selection-ask-panel textarea:focus {
   border-color: #4f46e5;
   box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.16);
@@ -133,4 +159,84 @@
 #insidebar-selection-ask-panel button[data-action="send-question"]:hover,
 #insidebar-selection-ask-panel button[data-action="send-question"]:focus-visible {
   background: #374151;
+}
+
+#insidebar-selection-floating-window {
+  position: fixed;
+  z-index: 2147483647;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 24px));
+  height: min(560px, calc(100vh - 24px));
+  min-width: min(420px, calc(100vw - 24px));
+  min-height: min(360px, calc(100vh - 24px));
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+  color: #111827;
+  overflow: hidden;
+  resize: both;
+}
+
+#insidebar-selection-floating-window[hidden] {
+  display: none;
+}
+
+.insidebar-selection-floating-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 36px;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+  cursor: move;
+  user-select: none;
+}
+
+.insidebar-selection-floating-title {
+  overflow: hidden;
+  color: #111827;
+  font: 600 13px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insidebar-selection-floating-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+  font: 16px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.insidebar-selection-floating-close:hover,
+.insidebar-selection-floating-close:focus-visible {
+  background: #e5e7eb;
+  color: #111827;
+  outline: none;
+}
+
+#insidebar-selection-floating-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #ffffff;
+}
+
+#insidebar-selection-floating-window.insidebar-selection-floating-dragging,
+#insidebar-selection-floating-window.insidebar-selection-floating-dragging * {
+  user-select: none;
+}
+
+#insidebar-selection-floating-window.insidebar-selection-floating-dragging iframe {
+  pointer-events: none;
 }

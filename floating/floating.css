@@ -1,0 +1,88 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #ffffff;
+  color: #111827;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+#reference {
+  flex: 0 0 auto;
+  max-height: 132px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+#reference[hidden] {
+  display: none;
+}
+
+.reference-label {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+#reference-question {
+  margin-top: 4px;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+#reference-text {
+  margin-top: 4px;
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+#provider-shell {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #ffffff;
+}
+
+#provider-shell iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #ffffff;
+}
+
+#status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  background: #ffffff;
+}
+
+#status[hidden] {
+  display: none;
+}

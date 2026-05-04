@@ -27,10 +27,16 @@
   const MAX_SELECTION_LENGTH = 12000;
   const toolbarId = 'insidebar-selection-toolbar';
   const askPanelId = 'insidebar-selection-ask-panel';
+  const floatingWindowId = 'insidebar-selection-floating-window';
   let toolbar = null;
   let askPanel = null;
+  let floatingWindow = null;
+  let floatingFrame = null;
+  let floatingFrameReady = false;
+  let pendingFloatingPayload = null;
   let selectedText = '';
   let askPanelText = '';
+  let askPanelAnchorRect = null;
   let hideTimer = null;
 
   if (PROVIDER_HOSTS.has(window.location.hostname) || window.top !== window) {
@@ -79,6 +85,18 @@
     textarea.setAttribute('aria-label', 'Ask about selected text');
     textarea.addEventListener('keydown', handleAskKeydown);
 
+    const quote = document.createElement('div');
+    quote.className = 'insidebar-selection-ask-quote';
+
+    const quoteLabel = document.createElement('div');
+    quoteLabel.className = 'insidebar-selection-ask-quote-label';
+    quoteLabel.textContent = 'Selected content';
+
+    const quoteText = document.createElement('div');
+    quoteText.className = 'insidebar-selection-ask-quote-text';
+
+    quote.append(quoteLabel, quoteText);
+
     const footer = document.createElement('div');
     footer.className = 'insidebar-selection-ask-footer';
 
@@ -102,7 +120,7 @@
 
     actions.append(cancelButton, sendButton);
     footer.append(hint, actions);
-    element.append(textarea, footer);
+    element.append(quote, textarea, footer);
 
     element.addEventListener('mousedown', (event) => {
       event.stopPropagation();
@@ -117,6 +135,56 @@
       askPanel = createAskPanel();
     }
     return askPanel;
+  }
+
+  function createFloatingWindow() {
+    const element = document.createElement('div');
+    element.id = floatingWindowId;
+    element.hidden = true;
+
+    const header = document.createElement('div');
+    header.className = 'insidebar-selection-floating-header';
+
+    const title = document.createElement('div');
+    title.className = 'insidebar-selection-floating-title';
+    title.textContent = 'insidebar.ai Ask';
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'insidebar-selection-floating-close';
+    closeButton.textContent = 'x';
+    closeButton.title = 'Close';
+    closeButton.setAttribute('aria-label', 'Close floating Ask window');
+    closeButton.addEventListener('click', hideFloatingWindow);
+
+    header.append(title, closeButton);
+
+    const frame = document.createElement('iframe');
+    frame.id = 'insidebar-selection-floating-frame';
+    frame.title = 'insidebar.ai Ask';
+    frame.allow = 'clipboard-read; clipboard-write';
+    frame.src = chrome.runtime.getURL('floating/floating.html');
+    frame.addEventListener('load', () => {
+      floatingFrameReady = true;
+      flushFloatingPayload();
+    });
+
+    header.addEventListener('mousedown', startFloatingDrag);
+    element.append(header, frame);
+    document.documentElement.appendChild(element);
+
+    floatingFrame = frame;
+    window.addEventListener('message', handleFloatingMessage);
+    return element;
+  }
+
+  function getFloatingWindow() {
+    if (!floatingWindow || !document.documentElement.contains(floatingWindow)) {
+      floatingFrameReady = false;
+      floatingFrame = null;
+      floatingWindow = createFloatingWindow();
+    }
+    return floatingWindow;
   }
 
   function getSelectionInfo() {
@@ -176,9 +244,13 @@
 
   function showAskPanel(anchorRect, text) {
     askPanelText = text.slice(0, MAX_SELECTION_LENGTH);
+    askPanelAnchorRect = anchorRect;
     const element = getAskPanel();
     const textarea = element.querySelector('textarea');
+    const quoteText = element.querySelector('.insidebar-selection-ask-quote-text');
     textarea.value = '';
+    quoteText.textContent = truncateText(askPanelText, 420);
+    quoteText.title = askPanelText;
     element.hidden = false;
 
     const margin = 8;
@@ -200,9 +272,17 @@
 
   function hideAskPanel() {
     askPanelText = '';
+    askPanelAnchorRect = null;
     if (askPanel) {
       askPanel.hidden = true;
     }
+  }
+
+  function truncateText(text, maxLength) {
+    if (!text || text.length <= maxLength) {
+      return text || '';
+    }
+    return `${text.slice(0, maxLength - 3)}...`;
   }
 
   function scheduleHide() {
@@ -251,17 +331,131 @@
     const element = getAskPanel();
     const textarea = element.querySelector('textarea');
     const question = textarea.value.trim();
-    if (!question || !askPanelText) {
+    const text = askPanelText;
+    const anchorRect = askPanelAnchorRect || element.getBoundingClientRect();
+    if (!question || !text) {
       return;
     }
 
     hideAskPanel();
 
-    try {
-      await sendPrompt(buildAskPrompt(question, askPanelText));
-    } catch (error) {
-      console.warn('[insidebar.ai] Failed to send selected text:', error);
+    openFloatingConversation({
+      question,
+      selectedText: text,
+      prompt: buildAskPrompt(question, text),
+      pageUrl: window.location.href,
+      autoSubmit: true
+    }, anchorRect);
+  }
+
+  function openFloatingConversation(payload, anchorRect) {
+    const element = getFloatingWindow();
+    const wasHidden = element.hidden;
+    element.hidden = false;
+
+    if (wasHidden || !element.dataset.positioned) {
+      positionFloatingWindow(element, anchorRect);
     }
+
+    pendingFloatingPayload = {
+      type: 'INSIDEBAR_FLOATING_PROMPT',
+      payload
+    };
+    flushFloatingPayload();
+  }
+
+  function flushFloatingPayload() {
+    if (!pendingFloatingPayload || !floatingFrameReady || !floatingFrame?.contentWindow) {
+      return;
+    }
+
+    floatingFrame.contentWindow.postMessage(pendingFloatingPayload, '*');
+    pendingFloatingPayload = null;
+  }
+
+  function positionFloatingWindow(element, anchorRect) {
+    const margin = 12;
+    const rect = element.getBoundingClientRect();
+    const width = rect.width || 640;
+    const height = rect.height || 560;
+    const topCandidate = anchorRect ? anchorRect.top : margin;
+    const leftCandidate = anchorRect ? anchorRect.left : window.innerWidth - width - margin;
+    const top = clamp(topCandidate, margin, window.innerHeight - height - margin);
+    const left = clamp(leftCandidate, margin, window.innerWidth - width - margin);
+
+    element.style.top = `${top}px`;
+    element.style.left = `${left}px`;
+    element.dataset.positioned = 'true';
+  }
+
+  function hideFloatingWindow() {
+    if (floatingWindow) {
+      floatingWindow.hidden = true;
+    }
+  }
+
+  function startFloatingDrag(event) {
+    if (event.button !== 0 || event.target.closest('button')) {
+      return;
+    }
+
+    const element = getFloatingWindow();
+    const rect = element.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startTop = rect.top;
+    const startLeft = rect.left;
+
+    event.preventDefault();
+    element.classList.add('insidebar-selection-floating-dragging');
+
+    const move = (moveEvent) => {
+      const nextLeft = clamp(
+        startLeft + moveEvent.clientX - startX,
+        0,
+        window.innerWidth - rect.width
+      );
+      const nextTop = clamp(
+        startTop + moveEvent.clientY - startY,
+        0,
+        window.innerHeight - rect.height
+      );
+
+      element.style.left = `${nextLeft}px`;
+      element.style.top = `${nextTop}px`;
+    };
+
+    const stop = () => {
+      element.classList.remove('insidebar-selection-floating-dragging');
+      document.removeEventListener('mousemove', move, true);
+      document.removeEventListener('mouseup', stop, true);
+    };
+
+    document.addEventListener('mousemove', move, true);
+    document.addEventListener('mouseup', stop, true);
+  }
+
+  function handleFloatingMessage(event) {
+    if (!floatingFrame || event.source !== floatingFrame.contentWindow) {
+      return;
+    }
+
+    const data = event.data;
+    if (!data || data.type !== 'INSIDEBAR_FLOATING_STATUS') {
+      return;
+    }
+
+    const title = floatingWindow?.querySelector('.insidebar-selection-floating-title');
+    if (title && data.title) {
+      title.textContent = data.title;
+    }
+  }
+
+  function clamp(value, min, max) {
+    if (max < min) {
+      return min;
+    }
+    return Math.min(Math.max(value, min), max);
   }
 
   function handleAskKeydown(event) {
