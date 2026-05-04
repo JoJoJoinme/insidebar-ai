@@ -71,9 +71,9 @@ body {
 
 #floating-provider-tabs {
   display: flex;
-  flex: 0 0 44px;
-  min-height: 44px;
-  border-top: 1px solid #e5e7eb;
+  flex: 0 0 40px;
+  min-height: 40px;
+  border-bottom: 1px solid #e5e7eb;
   background: #f8fafc;
   overflow-x: auto;
   overflow-y: hidden;
@@ -85,12 +85,12 @@ body {
 
 #floating-provider-tabs button {
   display: flex;
-  flex: 0 0 44px;
+  flex: 0 0 42px;
   align-items: center;
   justify-content: center;
-  width: 44px;
+  width: 42px;
   border: 0;
-  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
   background: transparent;
   cursor: pointer;
   opacity: 0.62;
@@ -104,7 +104,7 @@ body {
 }
 
 #floating-provider-tabs button.active {
-  border-top-color: #2563eb;
+  border-bottom-color: #2563eb;
   background: #ffffff;
   opacity: 1;
 }

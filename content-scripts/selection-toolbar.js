@@ -169,8 +169,8 @@
 
     const sidePanelButton = document.createElement('button');
     sidePanelButton.type = 'button';
-    sidePanelButton.className = 'insidebar-selection-floating-control';
-    sidePanelButton.textContent = '[]';
+    sidePanelButton.className = 'insidebar-selection-floating-control insidebar-selection-floating-dock';
+    sidePanelButton.textContent = 'Dock';
     sidePanelButton.title = 'Open in sidebar';
     sidePanelButton.setAttribute('aria-label', 'Open floating Ask in sidebar');
     sidePanelButton.addEventListener('click', openFloatingInSidePanel);
