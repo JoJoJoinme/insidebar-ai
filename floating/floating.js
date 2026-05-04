@@ -1,4 +1,4 @@
-import { getProviderByIdWithSettings } from '../modules/providers.js';
+import { PROVIDERS, getProviderByIdWithSettings } from '../modules/providers.js';
 
 const DEFAULT_ENABLED_PROVIDERS = [
   'chatgpt',
@@ -16,6 +16,7 @@ const reference = document.getElementById('reference');
 const referenceQuestion = document.getElementById('reference-question');
 const referenceText = document.getElementById('reference-text');
 const providerShell = document.getElementById('provider-shell');
+const providerTabs = document.getElementById('floating-provider-tabs');
 const status = document.getElementById('status');
 
 let providerIframe = null;
@@ -45,6 +46,9 @@ window.addEventListener('message', (event) => {
 });
 
 notifyParent('insidebar.ai Ask');
+renderProviderTabs().catch((error) => {
+  console.warn('[insidebar.ai] Failed to render floating provider tabs:', error);
+});
 
 async function handlePreload() {
   if (providerIframe || providerIframeLoadPromise) {
@@ -126,6 +130,7 @@ function formatContentWithSource(text, pageUrl, placement) {
 
 async function loadProvider(provider) {
   if (providerIframe && providerIframeId === provider.id) {
+    await renderProviderTabs(provider.id);
     await waitForProviderFrame();
     return;
   }
@@ -136,6 +141,7 @@ async function loadProvider(provider) {
 
   providerIframeReady = false;
   providerIframeId = provider.id;
+  await renderProviderTabs(provider.id);
   providerIframe = document.createElement('iframe');
   providerIframe.src = provider.url;
   providerIframe.title = provider.name;
@@ -160,6 +166,61 @@ async function loadProvider(provider) {
   providerShell.appendChild(providerIframe);
   status.hidden = true;
   await providerIframeLoadPromise;
+}
+
+async function renderProviderTabs(activeProviderId = providerIframeId) {
+  const enabledProviders = await getEnabledProviders();
+  providerTabs.innerHTML = '';
+
+  for (const provider of enabledProviders) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.providerId = provider.id;
+    button.title = provider.name;
+    button.setAttribute('aria-label', provider.name);
+    if (provider.id === activeProviderId) {
+      button.classList.add('active');
+    }
+
+    const icon = document.createElement('img');
+    icon.src = provider.icon;
+    icon.alt = provider.name;
+
+    button.appendChild(icon);
+    button.addEventListener('click', () => {
+      switchProviderFromTab(provider.id).catch((error) => {
+        console.warn('[insidebar.ai] Failed to switch floating provider:', error);
+        setStatus(error.message || `Failed to load ${provider.name}.`);
+      });
+    });
+    providerTabs.appendChild(button);
+  }
+}
+
+async function getEnabledProviders() {
+  const settings = await chrome.storage.sync.get({
+    enabledProviders: DEFAULT_ENABLED_PROVIDERS
+  });
+  const enabledIds = Array.isArray(settings.enabledProviders)
+    ? settings.enabledProviders
+    : DEFAULT_ENABLED_PROVIDERS;
+  return PROVIDERS.filter((provider) => enabledIds.includes(provider.id));
+}
+
+async function switchProviderFromTab(providerId) {
+  const provider = await getProviderByIdWithSettings(providerId);
+  if (!provider) {
+    throw new Error(`Provider ${providerId} not found.`);
+  }
+
+  await chrome.storage.sync.set({ lastSelectedProvider: providerId });
+  notifyParent(`insidebar.ai Ask - ${provider.name}`);
+
+  if (!providerIframe || providerIframeId !== provider.id) {
+    setStatus(`Opening ${provider.name}...`);
+  }
+
+  await loadProvider(provider);
 }
 
 async function waitForProviderFrame() {

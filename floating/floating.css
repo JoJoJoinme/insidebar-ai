@@ -69,6 +69,52 @@ body {
   background: #ffffff;
 }
 
+#floating-provider-tabs {
+  display: flex;
+  flex: 0 0 44px;
+  min-height: 44px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8fafc;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#floating-provider-tabs:empty {
+  display: none;
+}
+
+#floating-provider-tabs button {
+  display: flex;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  border: 0;
+  border-top: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.62;
+}
+
+#floating-provider-tabs button:hover,
+#floating-provider-tabs button:focus-visible {
+  background: #e5e7eb;
+  opacity: 1;
+  outline: none;
+}
+
+#floating-provider-tabs button.active {
+  border-top-color: #2563eb;
+  background: #ffffff;
+  opacity: 1;
+}
+
+#floating-provider-tabs img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
 #status {
   position: absolute;
   inset: 0;

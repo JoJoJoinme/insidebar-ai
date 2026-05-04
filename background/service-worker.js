@@ -377,6 +377,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'selectionToolbarSend') {
     handleSelectionToolbarSend(message.payload, sender).then(sendResponse);
     return true; // Keep channel open for async response
+  } else if (message.action === 'openOptionsPage') {
+    chrome.runtime.openOptionsPage().then(() => {
+      sendResponse({ success: true });
+    }).catch((error) => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true;
   }
   return true;
 });

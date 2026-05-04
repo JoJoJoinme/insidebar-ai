@@ -37,6 +37,7 @@
   let floatingPreloadRequested = false;
   let floatingPreloadSent = false;
   let pendingFloatingPayload = null;
+  let currentFloatingPayload = null;
   let selectedText = '';
   let askPanelText = '';
   let askPanelAnchorRect = null;
@@ -163,6 +164,29 @@
     title.className = 'insidebar-selection-floating-title';
     title.textContent = 'insidebar.ai Ask';
 
+    const controls = document.createElement('div');
+    controls.className = 'insidebar-selection-floating-controls';
+
+    const sidePanelButton = document.createElement('button');
+    sidePanelButton.type = 'button';
+    sidePanelButton.className = 'insidebar-selection-floating-control';
+    sidePanelButton.textContent = '[]';
+    sidePanelButton.title = 'Open in sidebar';
+    sidePanelButton.setAttribute('aria-label', 'Open floating Ask in sidebar');
+    sidePanelButton.addEventListener('click', openFloatingInSidePanel);
+
+    const optionsButton = document.createElement('button');
+    optionsButton.type = 'button';
+    optionsButton.className = 'insidebar-selection-floating-control';
+    optionsButton.textContent = '...';
+    optionsButton.title = 'Open options';
+    optionsButton.setAttribute('aria-label', 'Open insidebar.ai options');
+    optionsButton.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'openOptionsPage' }).catch((error) => {
+        console.warn('[insidebar.ai] Failed to open options:', error);
+      });
+    });
+
     const closeButton = document.createElement('button');
     closeButton.type = 'button';
     closeButton.className = 'insidebar-selection-floating-close';
@@ -171,7 +195,8 @@
     closeButton.setAttribute('aria-label', 'Close floating Ask window');
     closeButton.addEventListener('click', hideFloatingWindow);
 
-    header.append(title, closeButton);
+    controls.append(sidePanelButton, optionsButton, closeButton);
+    header.append(title, controls);
 
     const frame = document.createElement('iframe');
     frame.id = 'insidebar-selection-floating-frame';
@@ -402,6 +427,7 @@
     const element = getFloatingWindow();
     const wasHidden = element.hidden;
     element.hidden = false;
+    currentFloatingPayload = payload;
 
     if (wasHidden || !element.dataset.positioned) {
       positionFloatingWindow(element, anchorRect);
@@ -461,6 +487,23 @@
   function hideFloatingWindow() {
     if (floatingWindow) {
       floatingWindow.hidden = true;
+    }
+  }
+
+  async function openFloatingInSidePanel() {
+    const payload = currentFloatingPayload;
+    if (!payload?.prompt) {
+      return;
+    }
+
+    hideFloatingWindow();
+
+    try {
+      await sendPrompt(payload.prompt, {
+        autoSubmit: payload.autoSubmit === true
+      });
+    } catch (error) {
+      console.warn('[insidebar.ai] Failed to open selected text in sidebar:', error);
     }
   }
 

@@ -206,6 +206,14 @@
   white-space: nowrap;
 }
 
+.insidebar-selection-floating-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.insidebar-selection-floating-control,
 .insidebar-selection-floating-close {
   width: 28px;
   height: 28px;
@@ -217,6 +225,13 @@
   font: 16px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.insidebar-selection-floating-control {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.insidebar-selection-floating-control:hover,
+.insidebar-selection-floating-control:focus-visible,
 .insidebar-selection-floating-close:hover,
 .insidebar-selection-floating-close:focus-visible {
   background: #e5e7eb;
