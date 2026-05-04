@@ -61,6 +61,7 @@ async function init() {
   await applyTheme();
   await initializeLanguage();  // Initialize i18n
   translatePage();  // Translate all static text
+  setupSidebarTopbar();
   await renderProviderTabs();
   await loadDefaultProvider();
   setupMessageListener();
@@ -81,6 +82,20 @@ async function init() {
       // Ignore errors during unload
     }
   });
+}
+
+function setupSidebarTopbar() {
+  const floatButton = document.getElementById('sidebar-float-btn');
+  if (floatButton) {
+    floatButton.addEventListener('click', openFloatingWindow);
+  }
+
+  const settingsButton = document.getElementById('sidebar-settings-btn');
+  if (settingsButton) {
+    settingsButton.addEventListener('click', () => {
+      chrome.runtime.openOptionsPage();
+    });
+  }
 }
 
 // Listen for theme changes and re-render tabs with appropriate icons
@@ -172,21 +187,25 @@ async function renderProviderTabs() {
   promptLibraryTab.addEventListener('click', () => switchToView('prompt-library'));
   tabsContainer.appendChild(promptLibraryTab);
 
-  // Add settings tab at the very end (right side)
-  const settingsTab = document.createElement('button');
-  settingsTab.id = 'settings-tab';
-  settingsTab.title = t('sectionAbout');
+}
 
-  const settingsIcon = document.createElement('img');
-  settingsIcon.src = useDarkIcons ? '/icons/ui/dark/settings.png' : '/icons/ui/settings.png';
-  settingsIcon.alt = 'Settings';
-  settingsIcon.className = 'provider-icon';
+async function openFloatingWindow() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'openFloatingAskFromSidebar',
+      payload: {
+        providerId: currentProvider
+      }
+    });
 
-  settingsTab.appendChild(settingsIcon);
-  settingsTab.addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
-  });
-  tabsContainer.appendChild(settingsTab);
+    if (response?.success) {
+      window.close();
+    } else if (response?.error) {
+      console.warn('[insidebar.ai] Failed to open floating window:', response.error);
+    }
+  } catch (error) {
+    console.warn('[insidebar.ai] Failed to open floating window:', error);
+  }
 }
 
 // T015: Switch to a provider

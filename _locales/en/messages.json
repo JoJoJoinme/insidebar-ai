@@ -892,5 +892,11 @@
   },
   "msgSelectionToolbarOpenModeUpdated": {
     "message": "Selection toolbar open mode updated"
+  },
+  "btnFloat": {
+    "message": "Float"
+  },
+  "tooltipOpenFloatingWindow": {
+    "message": "Open floating window"
   }
 }

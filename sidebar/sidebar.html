@@ -24,6 +24,24 @@
 </head>
 <body data-theme="auto">
   <div id="app">
+    <header id="sidebar-topbar">
+      <div id="sidebar-title">insidebar.ai</div>
+      <div id="sidebar-topbar-actions">
+        <button id="sidebar-float-btn" class="sidebar-topbar-btn sidebar-topbar-btn-text" data-i18n-title="tooltipOpenFloatingWindow" data-i18n-aria="tooltipOpenFloatingWindow" title="Open floating window" aria-label="Open floating window">
+          <span class="material-symbols-outlined">open_in_new</span>
+          <span data-i18n="btnFloat">Float</span>
+        </button>
+        <button id="sidebar-settings-btn" class="sidebar-topbar-btn" data-i18n-title="settingsTitle" data-i18n-aria="settingsTitle" title="Settings" aria-label="Settings">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Provider and tool tabs -->
+    <nav id="provider-tabs">
+      <!-- Provider tabs will be dynamically generated here -->
+    </nav>
+
     <!-- Provider iframe container -->
     <div id="provider-container">
       <div id="loading" style="display: none;">Loading AI provider...</div>
@@ -253,10 +271,6 @@
       </div>
     </div>
 
-    <!-- Provider tabs (bottom navigation) -->
-    <nav id="provider-tabs">
-      <!-- Provider tabs will be dynamically generated here -->
-    </nav>
   </div>
 
   <script src="marked.min.js"></script>

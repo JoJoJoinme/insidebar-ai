@@ -80,6 +80,70 @@ body {
   height: 100vh;
 }
 
+#sidebar-topbar {
+  display: flex;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #ffffff;
+}
+
+#sidebar-title {
+  min-width: 0;
+  overflow: hidden;
+  color: #333333;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#sidebar-topbar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #555555;
+  cursor: pointer;
+  font: inherit;
+}
+
+.sidebar-topbar-btn-text {
+  width: auto;
+  min-width: 64px;
+  gap: 4px;
+  padding: 0 8px;
+  color: #333333;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sidebar-topbar-btn:hover,
+.sidebar-topbar-btn:focus-visible {
+  background: #eeeeee;
+  color: #111111;
+  outline: none;
+}
+
+.sidebar-topbar-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
 #provider-container {
   flex: 1;
   position: relative;
@@ -119,23 +183,26 @@ body {
 
 #provider-tabs {
   display: flex;
-  border-top: 1px solid #e0e0e0;
+  flex: 0 0 42px;
+  min-height: 42px;
+  border-bottom: 1px solid #e0e0e0;
   background: #f5f5f5;
   overflow-x: auto;
+  overflow-y: hidden;
   flex-shrink: 0;
 }
 
 #provider-tabs button {
   flex: 0 0 48px;
   width: 48px;
-  padding: 10px 8px;
+  padding: 8px;
   border: none;
   background: transparent;
   cursor: pointer;
-  transition: background 0.2s, border-top 0.2s, opacity 0.2s;
+  transition: background 0.2s, border-bottom 0.2s, opacity 0.2s;
   font-size: 12px;
   color: #666;
-  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -157,7 +224,7 @@ body {
 
 #provider-tabs button.active {
   background: #ffffff;
-  border-top: 2px solid #1a73e8;
+  border-bottom: 2px solid #1a73e8;
   color: #1a73e8;
   font-weight: 500;
   opacity: 1;
@@ -171,8 +238,7 @@ body {
 }
 
 /* UI tabs (chat history, prompt library, settings) - fixed width on right */
-#provider-tabs button[data-view],
-#provider-tabs button#settings-tab {
+#provider-tabs button[data-view] {
   flex: 0 0 48px;
   max-width: 48px;
 }
@@ -192,6 +258,29 @@ body {
   background: #2d2d2d;
 }
 
+[data-theme="dark"] #sidebar-topbar {
+  background: #1e1e1e;
+  border-bottom-color: #444;
+}
+
+[data-theme="dark"] #sidebar-title {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .sidebar-topbar-btn {
+  color: #aaaaaa;
+}
+
+[data-theme="dark"] .sidebar-topbar-btn-text {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .sidebar-topbar-btn:hover,
+[data-theme="dark"] .sidebar-topbar-btn:focus-visible {
+  background: #3a3a3a;
+  color: #ffffff;
+}
+
 [data-theme="dark"] #loading {
   color: #aaa;
 }
@@ -204,7 +293,7 @@ body {
 
 [data-theme="dark"] #provider-tabs {
   background: #2d2d2d;
-  border-top-color: #444;
+  border-bottom-color: #444;
 }
 
 [data-theme="dark"] #provider-tabs button {
@@ -220,7 +309,7 @@ body {
 
 [data-theme="dark"] #provider-tabs button.active {
   background: #1e1e1e;
-  border-top-color: #4285f4;
+  border-bottom-color: #4285f4;
   color: #4285f4;
   opacity: 1;
 }

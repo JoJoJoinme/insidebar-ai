@@ -450,7 +450,15 @@
   }
 
   function requestFloatingPreload() {
-    if (selectionToolbarOpenMode !== 'floating' || floatingPreloadSent || floatingPreloadRequested) {
+    if (selectionToolbarOpenMode !== 'floating') {
+      return;
+    }
+
+    preloadFloatingProvider();
+  }
+
+  function preloadFloatingProvider() {
+    if (floatingPreloadSent || floatingPreloadRequested) {
       return;
     }
 
@@ -488,6 +496,18 @@
     if (floatingWindow) {
       floatingWindow.hidden = true;
     }
+  }
+
+  function showFloatingWindow(anchorRect = null) {
+    const element = getFloatingWindow();
+    const wasHidden = element.hidden;
+    element.hidden = false;
+
+    if (wasHidden || !element.dataset.positioned) {
+      positionFloatingWindow(element, anchorRect);
+    }
+
+    preloadFloatingProvider();
   }
 
   async function openFloatingInSidePanel() {
@@ -643,5 +663,15 @@
   window.addEventListener('resize', () => {
     hideToolbar();
     hideAskPanel();
+  });
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.action !== 'openSelectionFloating') {
+      return false;
+    }
+
+    showFloatingWindow();
+    sendResponse({ success: true });
+    return false;
   });
 })();

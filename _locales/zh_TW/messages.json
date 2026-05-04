@@ -876,5 +876,11 @@
   },
   "msgSelectionToolbarOpenModeUpdated": {
     "message": "劃詞工具列開啟方式已更新"
+  },
+  "btnFloat": {
+    "message": "浮動"
+  },
+  "tooltipOpenFloatingWindow": {
+    "message": "開啟浮動視窗"
   }
 }

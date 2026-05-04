@@ -377,6 +377,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'selectionToolbarSend') {
     handleSelectionToolbarSend(message.payload, sender).then(sendResponse);
     return true; // Keep channel open for async response
+  } else if (message.action === 'openFloatingAskFromSidebar') {
+    handleOpenFloatingAskFromSidebar(message.payload).then(sendResponse);
+    return true; // Keep channel open for async response
   } else if (message.action === 'openOptionsPage') {
     chrome.runtime.openOptionsPage().then(() => {
       sendResponse({ success: true });
@@ -404,6 +407,32 @@ async function handleSelectionToolbarSend(payload, sender) {
   });
 
   return { success: true, providerId };
+}
+
+async function handleOpenFloatingAskFromSidebar(payload = {}) {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (!tab?.id) {
+    return { success: false, error: 'No active tab found' };
+  }
+
+  if (payload.providerId) {
+    await chrome.storage.sync.set({ lastSelectedProvider: payload.providerId });
+  }
+
+  try {
+    await chrome.tabs.sendMessage(tab.id, {
+      action: 'openSelectionFloating',
+      payload: {}
+    });
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+
+  if (tab.windowId) {
+    sidePanelState.set(tab.windowId, false);
+  }
+
+  return { success: true };
 }
 
 // T073: Handle version check by fetching latest commit from GitHub API
