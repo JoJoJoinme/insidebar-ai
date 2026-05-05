@@ -6,8 +6,7 @@ const DEFAULT_ENABLED_PROVIDERS = [
   'gemini',
   'google',
   'grok',
-  'deepseek',
-  'copilot'
+  'deepseek'
 ];
 const FRAME_SANDBOX = 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox';
 const MAX_PREVIEW_LENGTH = 900;
@@ -109,11 +108,15 @@ async function getDefaultProviderId() {
     ? (settings.lastSelectedProvider || settings.defaultProvider)
     : settings.defaultProvider;
 
-  if (settings.enabledProviders.includes(preferredProvider)) {
+  const enabledProviders = settings.enabledProviders.filter(providerId =>
+    DEFAULT_ENABLED_PROVIDERS.includes(providerId)
+  );
+
+  if (enabledProviders.includes(preferredProvider)) {
     return preferredProvider;
   }
 
-  return settings.enabledProviders[0] || 'chatgpt';
+  return enabledProviders[0] || 'chatgpt';
 }
 
 function formatContentWithSource(text, pageUrl, placement) {

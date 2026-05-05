@@ -11,24 +11,26 @@ let keyboardShortcutEnabled = true;
 
 // T070: Track side panel state per window
 const sidePanelState = new Map(); // windowId -> boolean (true = open, false = closed)
+const PROVIDER_IDS = ['chatgpt', 'claude', 'gemini', 'google', 'grok', 'deepseek'];
 
 async function getDefaultProviderId() {
   const settings = await chrome.storage.sync.get({
     lastSelectedProvider: 'chatgpt',
     defaultProvider: 'chatgpt',
     rememberLastProvider: true,
-    enabledProviders: ['chatgpt', 'claude', 'gemini', 'google', 'grok', 'deepseek', 'copilot']
+    enabledProviders: PROVIDER_IDS
   });
+  const enabledProviders = settings.enabledProviders.filter(providerId => PROVIDER_IDS.includes(providerId));
 
   const preferredProvider = settings.rememberLastProvider
     ? (settings.lastSelectedProvider || settings.defaultProvider)
     : settings.defaultProvider;
 
-  if (settings.enabledProviders.includes(preferredProvider)) {
+  if (enabledProviders.includes(preferredProvider)) {
     return preferredProvider;
   }
 
-  return settings.enabledProviders[0] || 'chatgpt';
+  return enabledProviders[0] || 'chatgpt';
 }
 
 async function formatContentWithSource(text, pageUrl) {
@@ -129,7 +131,7 @@ async function createContextMenus() {
 
   // Get enabled providers from settings
   const settings = await chrome.storage.sync.get({
-    enabledProviders: ['chatgpt', 'claude', 'gemini', 'google', 'grok', 'deepseek', 'copilot']
+    enabledProviders: PROVIDER_IDS
   });
 
   const enabledProviders = settings.enabledProviders;
@@ -148,11 +150,10 @@ async function createContextMenus() {
     gemini: 'Gemini',
     grok: 'Grok',
     deepseek: 'DeepSeek',
-    google: 'Google',
-    copilot: 'Microsoft Copilot'
+    google: 'Google'
   };
 
-  enabledProviders.forEach(providerId => {
+  enabledProviders.filter(providerId => providerNames[providerId]).forEach(providerId => {
     chrome.contextMenus.create({
       id: `provider-${providerId}`,
       parentId: 'open-smarter-panel',

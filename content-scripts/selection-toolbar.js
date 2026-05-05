@@ -10,10 +10,7 @@
     'grok.com',
     'chat.deepseek.com',
     'www.perplexity.ai',
-    'perplexity.ai',
-    'copilot.microsoft.com',
-    'www.bing.com',
-    'bing.com'
+    'perplexity.ai'
   ]);
 
   const ACTIONS = [

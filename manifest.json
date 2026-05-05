@@ -26,9 +26,6 @@
     "*://perplexity.ai/*",
     "*://www.google.com/*",
     "*://google.com/*",
-    "*://copilot.microsoft.com/*",
-    "*://www.bing.com/*",
-    "*://bing.com/*",
     "*://api.github.com/*",
     "<all_urls>"
   ],
@@ -196,21 +193,6 @@
         "content-scripts/focus-toggle.js"
       ],
       "css": ["content-scripts/google-save-button.css"],
-      "run_at": "document_end",
-      "all_frames": true
-    },
-    {
-      "matches": ["https://copilot.microsoft.com/*", "https://www.bing.com/chat*", "https://bing.com/chat*"],
-      "js": [
-        "content-scripts/enter-behavior-utils.js",
-        "content-scripts/enter-behavior-copilot.js",
-        "content-scripts/text-injection-all-providers.js",
-        "content-scripts/conversation-extractor-utils.js",
-        "content-scripts/language-detector.js",
-        "content-scripts/copilot-history-extractor.js",
-        "content-scripts/focus-toggle.js"
-      ],
-      "css": ["content-scripts/copilot-save-button.css"],
       "run_at": "document_end",
       "all_frames": true
     },
