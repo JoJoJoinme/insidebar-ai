@@ -9,8 +9,10 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "test:ui": "vitest --ui",
-    "test:acceptance": "node tests/acceptance/runner.mjs",
-    "test:e2e:cft": "node tests/acceptance/runner.mjs"
+    "test:acceptance:spec": "node tests/acceptance/check-spec.mjs",
+    "test:acceptance": "npm run test:acceptance:spec && node tests/acceptance/runner.mjs",
+    "test:e2e:cft": "npm run test:acceptance",
+    "test:required": "npm test -- --run && npm run test:acceptance"
   },
   "devDependencies": {
     "@vitest/ui": "^3.2.4",
