@@ -81,6 +81,30 @@
     return null;
   }
 
+  function applyEmbeddedProviderLayout(provider) {
+    if (window.top === window || provider !== 'chatgpt') {
+      return;
+    }
+
+    if (document.getElementById('insidebar-embedded-provider-layout')) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'insidebar-embedded-provider-layout';
+    style.textContent = `
+      header {
+        display: none !important;
+      }
+
+      html,
+      body {
+        overscroll-behavior: contain !important;
+      }
+    `;
+    document.documentElement.appendChild(style);
+  }
+
   // Find text input element by selector
   function findTextInputElement(selector) {
     if (!selector || typeof selector !== 'string') {
@@ -292,5 +316,6 @@
   }
 
   // Listen for messages from sidebar
+  applyEmbeddedProviderLayout(detectProvider());
   window.addEventListener('message', handleTextInjection);
 })();
