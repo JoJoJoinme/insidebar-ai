@@ -134,10 +134,15 @@ body {
 }
 
 .sidebar-topbar-btn:hover,
-.sidebar-topbar-btn:focus-visible {
+.sidebar-topbar-btn:focus-visible,
+.sidebar-topbar-btn.active {
   background: #eeeeee;
   color: #111111;
   outline: none;
+}
+
+.sidebar-topbar-btn.active {
+  color: #1a73e8;
 }
 
 .sidebar-topbar-btn .material-symbols-outlined {
@@ -231,19 +236,6 @@ body {
   opacity: 1;
 }
 
-.tab-separator {
-  flex: 1;
-  width: 1px;
-  background: transparent;
-  margin: 8px 4px;
-}
-
-/* UI tabs (chat history, prompt library, settings) - fixed width on right */
-#provider-tabs button[data-view] {
-  flex: 0 0 48px;
-  max-width: 48px;
-}
-
 /* Dark theme */
 [data-theme="dark"] {
   background: #1e1e1e;
@@ -277,9 +269,14 @@ body {
 }
 
 [data-theme="dark"] .sidebar-topbar-btn:hover,
-[data-theme="dark"] .sidebar-topbar-btn:focus-visible {
+[data-theme="dark"] .sidebar-topbar-btn:focus-visible,
+[data-theme="dark"] .sidebar-topbar-btn.active {
   background: #3a3a3a;
   color: #ffffff;
+}
+
+[data-theme="dark"] .sidebar-topbar-btn.active {
+  color: #4285f4;
 }
 
 [data-theme="dark"] #loading {

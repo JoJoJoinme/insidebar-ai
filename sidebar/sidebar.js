@@ -1,6 +1,6 @@
 import { PROVIDERS, getProviderById, getProviderByIdWithSettings, getEnabledProviders } from '../modules/providers.js';
 import { applyTheme } from '../modules/theme-manager.js';
-import { t, translatePage, initializeLanguage } from '../modules/i18n.js';
+import { translatePage, initializeLanguage } from '../modules/i18n.js';
 import {
   getAllPrompts,
   savePrompt,
@@ -96,6 +96,16 @@ function setupSidebarTopbar() {
       chrome.runtime.openOptionsPage();
     });
   }
+
+  const historyButton = document.getElementById('chat-history-tab');
+  if (historyButton) {
+    historyButton.addEventListener('click', () => switchToView('chat-history'));
+  }
+
+  const promptLibraryButton = document.getElementById('prompt-library-tab');
+  if (promptLibraryButton) {
+    promptLibraryButton.addEventListener('click', () => switchToView('prompt-library'));
+  }
 }
 
 // Listen for theme changes and re-render tabs with appropriate icons
@@ -151,42 +161,6 @@ async function renderProviderTabs() {
     button.addEventListener('click', () => switchProvider(provider.id));
     tabsContainer.appendChild(button);
   });
-
-  // Add separator between providers and UI tabs
-  const separator = document.createElement('div');
-  separator.className = 'tab-separator';
-  tabsContainer.appendChild(separator);
-
-  // Add chat history tab
-  const historyTab = document.createElement('button');
-  historyTab.id = 'chat-history-tab';
-  historyTab.dataset.view = 'chat-history';
-  historyTab.title = t('sidebarChatHistory');
-
-  const historyIcon = document.createElement('img');
-  historyIcon.src = useDarkIcons ? '/icons/ui/dark/chat-history.png' : '/icons/ui/chat-history.png';
-  historyIcon.alt = 'History';
-  historyIcon.className = 'provider-icon';
-
-  historyTab.appendChild(historyIcon);
-  historyTab.addEventListener('click', () => switchToView('chat-history'));
-  tabsContainer.appendChild(historyTab);
-
-  // Add prompt library tab
-  const promptLibraryTab = document.createElement('button');
-  promptLibraryTab.id = 'prompt-library-tab';
-  promptLibraryTab.dataset.view = 'prompt-library';
-  promptLibraryTab.title = t('sidebarPromptGenie');
-
-  const promptIcon = document.createElement('img');
-  promptIcon.src = useDarkIcons ? '/icons/ui/dark/prompts.png' : '/icons/ui/prompts.png';
-  promptIcon.alt = 'Prompts';
-  promptIcon.className = 'provider-icon';
-
-  promptLibraryTab.appendChild(promptIcon);
-  promptLibraryTab.addEventListener('click', () => switchToView('prompt-library'));
-  tabsContainer.appendChild(promptLibraryTab);
-
 }
 
 async function openFloatingWindow() {
@@ -242,9 +216,9 @@ async function switchProvider(providerId) {
     btn.classList.remove('active');
   });
 
-  // Deactivate prompt library tab
-  const promptLibraryTab = document.getElementById('prompt-library-tab');
-  if (promptLibraryTab) promptLibraryTab.classList.remove('active');
+  document.querySelectorAll('.sidebar-view-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
 
   // Activate the selected provider tab
   const activeProviderTab = document.querySelector(`#provider-tabs button[data-provider-id="${providerId}"]`);
@@ -774,6 +748,9 @@ function switchToView(view) {
 
   // Deactivate all tabs
   document.querySelectorAll('#provider-tabs button').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.querySelectorAll('.sidebar-view-btn').forEach(btn => {
     btn.classList.remove('active');
   });
 
