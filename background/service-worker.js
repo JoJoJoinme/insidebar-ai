@@ -48,6 +48,10 @@ async function formatContentWithSource(text, pageUrl) {
   return `${text}\n\nSource: ${pageUrl}`;
 }
 
+function isEnabledProviderId(providerId, enabledProviders = PROVIDER_IDS) {
+  return PROVIDER_IDS.includes(providerId) && enabledProviders.includes(providerId);
+}
+
 async function sendTextToProvider(windowId, providerId, selectedText, options = {}) {
   setTimeout(() => {
     notifyMessage({
@@ -382,7 +386,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleOpenFloatingAskFromSidebar(message.payload).then(sendResponse);
     return true; // Keep channel open for async response
   } else if (message.action === 'openSidePanelFromFloating') {
-    handleOpenSidePanelFromFloating(sender).then(sendResponse);
+    handleOpenSidePanelFromFloating(sender, message.payload).then(sendResponse);
     return true; // Keep channel open for async response
   } else if (message.action === 'openSidePanelViewFromFloating') {
     handleOpenSidePanelViewFromFloating(message.payload, sender).then(sendResponse);
@@ -406,8 +410,15 @@ async function handleSelectionToolbarSend(payload, sender) {
   await chrome.sidePanel.open({ windowId: sender.tab.windowId });
   sidePanelState.set(sender.tab.windowId, true);
 
-  const providerId = await getDefaultProviderId();
-  const settings = await chrome.storage.sync.get({ selectionToolbarAutoSubmit: false });
+  const settings = await chrome.storage.sync.get({
+    enabledProviders: PROVIDER_IDS,
+    selectionToolbarAutoSubmit: false
+  });
+  const enabledProviders = settings.enabledProviders.filter(providerId => PROVIDER_IDS.includes(providerId));
+  const providerId = isEnabledProviderId(payload.providerId, enabledProviders)
+    ? payload.providerId
+    : await getDefaultProviderId();
+  await chrome.storage.sync.set({ lastSelectedProvider: providerId });
   const selectedText = await formatContentWithSource(payload.prompt, payload.pageUrl);
   await sendTextToProvider(sender.tab.windowId, providerId, selectedText, {
     autoSubmit: payload.autoSubmit === true || settings.selectionToolbarAutoSubmit === true
@@ -465,7 +476,7 @@ async function ensureSelectionToolbarContentScript(tabId) {
   });
 }
 
-async function handleOpenSidePanelFromFloating(sender) {
+async function handleOpenSidePanelFromFloating(sender, payload = {}, options = {}) {
   const windowId = sender.tab?.windowId;
   if (!windowId) {
     return { success: false, error: 'Missing tab context' };
@@ -473,11 +484,29 @@ async function handleOpenSidePanelFromFloating(sender) {
 
   await chrome.sidePanel.open({ windowId });
   sidePanelState.set(windowId, true);
+
+  const settings = await chrome.storage.sync.get({ enabledProviders: PROVIDER_IDS });
+  const enabledProviders = settings.enabledProviders.filter(providerId => PROVIDER_IDS.includes(providerId));
+  if (isEnabledProviderId(payload.providerId, enabledProviders)) {
+    await chrome.storage.sync.set({ lastSelectedProvider: payload.providerId });
+    if (options.switchProvider !== false) {
+      setTimeout(() => {
+        notifyMessage({
+          action: 'switchProvider',
+          payload: { providerId: payload.providerId, selectedText: '' }
+        }).catch(() => {
+          // Sidebar may still be loading; persisted provider state will be used on init.
+        });
+      }, 150);
+    }
+    return { success: true, providerId: payload.providerId };
+  }
+
   return { success: true };
 }
 
 async function handleOpenSidePanelViewFromFloating(payload = {}, sender) {
-  const result = await handleOpenSidePanelFromFloating(sender);
+  const result = await handleOpenSidePanelFromFloating(sender, payload, { switchProvider: false });
   if (!result.success) {
     return result;
   }

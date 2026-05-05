@@ -35,6 +35,7 @@
   let floatingPreloadSent = false;
   let pendingFloatingPayload = null;
   let currentFloatingPayload = null;
+  let currentFloatingProviderId = null;
   let selectedText = '';
   let askPanelText = '';
   let askPanelAnchorRect = null;
@@ -408,6 +409,7 @@
       payload: {
         prompt,
         pageUrl: window.location.href,
+        providerId: options.providerId || currentFloatingProviderId,
         autoSubmit: options.autoSubmit === true
       }
     });
@@ -539,7 +541,10 @@
     if (!payload?.prompt) {
       hideFloatingWindow();
       try {
-        await chrome.runtime.sendMessage({ action: 'openSidePanelFromFloating' });
+        await chrome.runtime.sendMessage({
+          action: 'openSidePanelFromFloating',
+          payload: { providerId: currentFloatingProviderId }
+        });
       } catch (error) {
         console.warn('[insidebar.ai] Failed to open sidebar:', error);
       }
@@ -550,6 +555,7 @@
 
     try {
       await sendPrompt(payload.prompt, {
+        providerId: currentFloatingProviderId,
         autoSubmit: payload.autoSubmit === true
       });
     } catch (error) {
@@ -562,7 +568,10 @@
     try {
       await chrome.runtime.sendMessage({
         action: 'openSidePanelViewFromFloating',
-        payload: { view }
+        payload: {
+          view,
+          providerId: currentFloatingProviderId
+        }
       });
     } catch (error) {
       console.warn('[insidebar.ai] Failed to open sidebar view:', error);
@@ -623,6 +632,10 @@
     const title = floatingWindow?.querySelector('.insidebar-selection-floating-title');
     if (title && data.title) {
       title.textContent = data.title;
+    }
+
+    if (data.providerId) {
+      currentFloatingProviderId = data.providerId;
     }
   }
 

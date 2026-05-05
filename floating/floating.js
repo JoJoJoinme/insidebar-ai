@@ -60,7 +60,7 @@ async function handlePreload() {
     return;
   }
 
-  notifyParent(`insidebar.ai Ask - ${provider.name}`);
+  notifyParent(`insidebar.ai Ask - ${provider.name}`, provider.id);
   setStatus('Opening provider...');
   await loadProvider(provider);
 }
@@ -80,7 +80,7 @@ async function handlePrompt(payload) {
   if (!providerIframe || providerIframeId !== provider.id) {
     setStatus('Opening provider...');
   }
-  notifyParent(`insidebar.ai Ask - ${provider.name}`);
+  notifyParent(`insidebar.ai Ask - ${provider.name}`, provider.id);
   await loadProvider(provider);
 
   const settings = await chrome.storage.sync.get({
@@ -217,7 +217,7 @@ async function switchProviderFromTab(providerId) {
   }
 
   await chrome.storage.sync.set({ lastSelectedProvider: providerId });
-  notifyParent(`insidebar.ai Ask - ${provider.name}`);
+  notifyParent(`insidebar.ai Ask - ${provider.name}`, provider.id);
 
   if (!providerIframe || providerIframeId !== provider.id) {
     setStatus(`Opening ${provider.name}...`);
@@ -279,9 +279,10 @@ function setStatus(message) {
   status.hidden = false;
 }
 
-function notifyParent(title) {
+function notifyParent(title, providerId = providerIframeId) {
   window.parent.postMessage({
     type: 'INSIDEBAR_FLOATING_STATUS',
-    title
+    title,
+    providerId
   }, '*');
 }
