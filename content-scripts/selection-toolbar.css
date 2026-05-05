@@ -241,6 +241,20 @@
   font-weight: 700;
 }
 
+.insidebar-selection-floating-view-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.insidebar-selection-floating-view-control img {
+  display: block;
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+  opacity: 0.78;
+}
+
 .insidebar-selection-floating-control:hover,
 .insidebar-selection-floating-control:focus-visible,
 .insidebar-selection-floating-close:hover,

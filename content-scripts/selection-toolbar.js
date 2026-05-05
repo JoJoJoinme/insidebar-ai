@@ -164,6 +164,18 @@
     const controls = document.createElement('div');
     controls.className = 'insidebar-selection-floating-controls';
 
+    const historyButton = createFloatingViewButton(
+      'Open chat history',
+      'icons/ui/chat-history.png',
+      () => openFloatingUtilityView('chat-history')
+    );
+
+    const promptButton = createFloatingViewButton(
+      'Open prompt library',
+      'icons/ui/prompts.png',
+      () => openFloatingUtilityView('prompt-library')
+    );
+
     const sidePanelButton = document.createElement('button');
     sidePanelButton.type = 'button';
     sidePanelButton.className = 'insidebar-selection-floating-control insidebar-selection-floating-dock';
@@ -192,7 +204,7 @@
     closeButton.setAttribute('aria-label', 'Close floating Ask window');
     closeButton.addEventListener('click', hideFloatingWindow);
 
-    controls.append(sidePanelButton, optionsButton, closeButton);
+    controls.append(historyButton, promptButton, sidePanelButton, optionsButton, closeButton);
     header.append(title, controls);
 
     const frame = document.createElement('iframe');
@@ -213,6 +225,21 @@
     floatingFrame = frame;
     window.addEventListener('message', handleFloatingMessage);
     return element;
+  }
+
+  function createFloatingViewButton(label, iconPath, onClick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'insidebar-selection-floating-control insidebar-selection-floating-view-control';
+    button.title = label;
+    button.setAttribute('aria-label', label);
+
+    const icon = document.createElement('img');
+    icon.alt = '';
+    icon.src = chrome.runtime.getURL(iconPath);
+    button.appendChild(icon);
+    button.addEventListener('click', onClick);
+    return button;
   }
 
   function getFloatingWindow() {
@@ -527,6 +554,18 @@
       });
     } catch (error) {
       console.warn('[insidebar.ai] Failed to open selected text in sidebar:', error);
+    }
+  }
+
+  async function openFloatingUtilityView(view) {
+    hideFloatingWindow();
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'openSidePanelViewFromFloating',
+        payload: { view }
+      });
+    } catch (error) {
+      console.warn('[insidebar.ai] Failed to open sidebar view:', error);
     }
   }
 

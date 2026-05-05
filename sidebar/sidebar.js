@@ -343,6 +343,9 @@ function setupMessageListener() {
           }
 
           sendResponse({ success: true });
+        } else if (message.action === 'openChatHistory') {
+          switchToView('chat-history');
+          sendResponse({ success: true });
         } else if (message.action === 'closeSidePanel') {
           // T070: Close side panel when requested
           window.close();

@@ -384,6 +384,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'openSidePanelFromFloating') {
     handleOpenSidePanelFromFloating(sender).then(sendResponse);
     return true; // Keep channel open for async response
+  } else if (message.action === 'openSidePanelViewFromFloating') {
+    handleOpenSidePanelViewFromFloating(message.payload, sender).then(sendResponse);
+    return true; // Keep channel open for async response
   } else if (message.action === 'openOptionsPage') {
     chrome.runtime.openOptionsPage().then(() => {
       sendResponse({ success: true });
@@ -471,6 +474,23 @@ async function handleOpenSidePanelFromFloating(sender) {
   await chrome.sidePanel.open({ windowId });
   sidePanelState.set(windowId, true);
   return { success: true };
+}
+
+async function handleOpenSidePanelViewFromFloating(payload = {}, sender) {
+  const result = await handleOpenSidePanelFromFloating(sender);
+  if (!result.success) {
+    return result;
+  }
+
+  const view = payload.view === 'prompt-library' ? 'prompt-library' : 'chat-history';
+  setTimeout(() => {
+    const action = view === 'prompt-library' ? 'openPromptLibrary' : 'openChatHistory';
+    notifyMessage({ action, payload: {} }).catch(() => {
+      // Sidebar may still be loading; the panel is already open.
+    });
+  }, 150);
+
+  return { success: true, view };
 }
 
 async function getActiveWebTab() {

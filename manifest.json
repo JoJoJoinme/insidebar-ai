@@ -227,6 +227,8 @@
         "floating/floating.html",
         "floating/floating.css",
         "floating/floating.js",
+        "icons/ui/chat-history.png",
+        "icons/ui/prompts.png",
         "modules/providers.js",
         "_locales/en/messages.json",
         "_locales/zh_CN/messages.json",
