@@ -92,9 +92,11 @@
   function createAskPanel() {
     const element = document.createElement('div');
     element.id = askPanelId;
+    element.dataset.testid = 'selection-ask-panel';
     element.hidden = true;
 
     const textarea = document.createElement('textarea');
+    textarea.dataset.testid = 'selection-ask-input';
     textarea.rows = 3;
     textarea.placeholder = 'Ask about the selected text...';
     textarea.setAttribute('aria-label', 'Ask about selected text');
@@ -102,6 +104,7 @@
 
     const quote = document.createElement('div');
     quote.className = 'insidebar-selection-ask-quote';
+    quote.dataset.testid = 'selection-ask-quote';
 
     const quoteLabel = document.createElement('div');
     quoteLabel.className = 'insidebar-selection-ask-quote-label';
@@ -109,6 +112,7 @@
 
     const quoteText = document.createElement('div');
     quoteText.className = 'insidebar-selection-ask-quote-text';
+    quoteText.dataset.testid = 'selection-ask-quote-text';
 
     quote.append(quoteLabel, quoteText);
 
@@ -124,12 +128,14 @@
     const cancelButton = document.createElement('button');
     cancelButton.type = 'button';
     cancelButton.dataset.action = 'cancel';
+    cancelButton.dataset.testid = 'selection-ask-cancel';
     cancelButton.textContent = 'Cancel';
     cancelButton.addEventListener('click', hideAskPanel);
 
     const sendButton = document.createElement('button');
     sendButton.type = 'button';
     sendButton.dataset.action = 'send-question';
+    sendButton.dataset.testid = 'selection-ask-send';
     sendButton.textContent = 'Send';
     sendButton.addEventListener('click', submitAskPanel);
 

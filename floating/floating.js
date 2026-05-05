@@ -248,6 +248,9 @@ function injectPrompt(prompt, autoSubmit) {
     return;
   }
 
+  document.body.dataset.lastAutoSubmit = autoSubmit ? 'true' : 'false';
+  document.body.dataset.lastPromptLength = String(prompt.length);
+
   providerIframe.contentWindow.postMessage({
     type: 'INJECT_TEXT',
     text: prompt,

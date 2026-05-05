@@ -56,9 +56,15 @@ async function runAction(step) {
       break;
     case 'clickToolbarAction':
       await harness.clickToolbarAction(required(step.name, 'clickToolbarAction.name'));
+      if (step.waitForFloating !== false) {
+        await harness.waitForFloating();
+      }
       break;
     case 'switchFloatingProvider':
       await harness.switchFloatingProvider(required(step.provider, 'switchFloatingProvider.provider'));
+      break;
+    case 'submitAskQuestion':
+      await harness.submitAskQuestion(required(step.question, 'submitAskQuestion.question'));
       break;
     case 'dockFloating':
       await harness.dockFloating();
@@ -78,6 +84,17 @@ async function runAssertion(step) {
     case 'floatingVisible': {
       const state = await harness.readOuterFloatingState();
       assert(state.visible, `floating window should be visible: ${JSON.stringify(state)}`);
+      break;
+    }
+    case 'askPanelVisible': {
+      const state = await harness.readAskPanelState();
+      assert(state.visible, `ask panel should be visible: ${JSON.stringify(state)}`);
+      if (step.quoteIncludes) {
+        assert(
+          state.quoteText.includes(step.quoteIncludes),
+          `expected ask quote to include "${step.quoteIncludes}", got "${state.quoteText}"`
+        );
+      }
       break;
     }
     case 'floatingTopControls': {
@@ -114,6 +131,19 @@ async function runAssertion(step) {
       const layout = await harness.readFloatingLayout();
       assert(layout.activeProvider === step.provider,
         `expected floating provider ${step.provider}, got ${layout.activeProvider}`);
+      break;
+    }
+    case 'floatingReferenceQuestion': {
+      const state = await harness.readFloatingReference();
+      assert(state.question.includes(step.includes), `expected floating question to include "${step.includes}", got "${state.question}"`);
+      break;
+    }
+    case 'floatingAutoSubmit': {
+      const state = await harness.readFloatingInjectionState();
+      assert(state.autoSubmit === String(step.value), `expected floating autoSubmit ${step.value}, got ${state.autoSubmit}`);
+      if (step.minPromptLength != null) {
+        assert(state.promptLength >= step.minPromptLength, `expected prompt length >= ${step.minPromptLength}, got ${state.promptLength}`);
+      }
       break;
     }
     case 'storageProvider': {

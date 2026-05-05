@@ -11,16 +11,20 @@ const actions = new Set([
   'selectText',
   'clickToolbarAction',
   'switchFloatingProvider',
+  'submitAskQuestion',
   'dockFloating'
 ]);
 
 const assertions = new Set([
   'selectionToolbarVisible',
   'floatingVisible',
+  'askPanelVisible',
   'floatingTopControls',
   'floatingProviderTabs',
   'embeddedChatgptHeaderHidden',
   'floatingProvider',
+  'floatingReferenceQuestion',
+  'floatingAutoSubmit',
   'storageProvider',
   'sidebarProvider',
   'sidebarProviderTabsOnly'
@@ -115,10 +119,17 @@ function validateAction(context, step) {
 
   if (step.action === 'clickToolbarAction') {
     requireString(step.name, `${context}.name`);
+    if (step.waitForFloating != null && typeof step.waitForFloating !== 'boolean') {
+      fail(`${context}.waitForFloating must be boolean when provided`);
+    }
   }
 
   if (step.action === 'switchFloatingProvider') {
     requireProvider(step.provider, `${context}.provider`);
+  }
+
+  if (step.action === 'submitAskQuestion') {
+    requireString(step.question, `${context}.question`);
   }
 }
 
@@ -137,12 +148,29 @@ function validateAssertion(context, step) {
     requireProvider(step.provider, `${context}.provider`);
   }
 
+  if (step.assert === 'askPanelVisible' && step.quoteIncludes != null && typeof step.quoteIncludes !== 'string') {
+    fail(`${context}.quoteIncludes must be string when provided`);
+  }
+
   if (step.assert === 'floatingProviderTabs') {
     if (step.activeProvider) {
       requireProvider(step.activeProvider, `${context}.activeProvider`);
     }
     if (step.position && step.position !== 'bottom') {
       fail(`${context}: unsupported provider tab position "${step.position}"`);
+    }
+  }
+
+  if (step.assert === 'floatingReferenceQuestion') {
+    requireString(step.includes, `${context}.includes`);
+  }
+
+  if (step.assert === 'floatingAutoSubmit') {
+    if (typeof step.value !== 'boolean') {
+      fail(`${context}.value must be boolean`);
+    }
+    if (step.minPromptLength != null && (!Number.isInteger(step.minPromptLength) || step.minPromptLength < 0)) {
+      fail(`${context}.minPromptLength must be a non-negative integer when provided`);
     }
   }
 }

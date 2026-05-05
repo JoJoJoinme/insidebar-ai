@@ -40,5 +40,28 @@
       { "assert": "sidebarProvider", "provider": "claude" },
       { "assert": "sidebarProviderTabsOnly" }
     ]
+  },
+  {
+    "id": "selection-ask-autosubmit",
+    "intent": "Ask action opens question panel and sends question to floating provider with auto-submit enabled",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "floating",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible" },
+      { "action": "clickToolbarAction", "name": "Ask", "waitForFloating": false },
+      { "assert": "askPanelVisible", "quoteIncludes": "Industry produced over 90 percent of notable frontier AI models" },
+      { "action": "submitAskQuestion", "question": "What is the main point of this paragraph?" },
+      { "assert": "floatingVisible" },
+      { "assert": "floatingReferenceQuestion", "includes": "What is the main point of this paragraph?" },
+      { "assert": "floatingAutoSubmit", "value": true, "minPromptLength": 150 },
+      { "assert": "storageProvider", "provider": "chatgpt" }
+    ]
   }
 ]

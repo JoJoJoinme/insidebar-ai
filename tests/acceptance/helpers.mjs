@@ -109,10 +109,16 @@ export class AcceptanceHarness {
       const button = document.querySelector('[data-testid="selection-toolbar-${escapeForSelector(action)}"]');
       if (!button) throw new Error('Toolbar action not found: ${escapeJs(actionName)}');
       button.click();
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    })()`);
+  }
+
+  async waitForFloating() {
+    await this.evaluate(this.page, `(async () => {
       await waitFor(() => {
         const floating = document.querySelector('[data-testid="floating-window"]');
         return floating && !floating.hidden;
-      }, 8000);
+      }, 10000);
 
       function waitFor(predicate, timeout) {
         const started = Date.now();
@@ -135,6 +141,24 @@ export class AcceptanceHarness {
     this.floating = await this.waitForTarget((target) =>
       target.type === 'iframe' && target.url.includes('/floating/floating.html')
     );
+  }
+
+  async submitAskQuestion(question) {
+    await this.evaluate(this.page, `(async () => {
+      const panel = document.querySelector('[data-testid="selection-ask-panel"]');
+      if (!panel || panel.hidden) {
+        throw new Error('Ask panel is not visible');
+      }
+      const input = document.querySelector('[data-testid="selection-ask-input"]');
+      const send = document.querySelector('[data-testid="selection-ask-send"]');
+      if (!input || !send) {
+        throw new Error('Ask panel input or send button not found');
+      }
+      input.value = ${JSON.stringify(question)};
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      send.click();
+    })()`);
+    await this.waitForFloating();
   }
 
   async switchFloatingProvider(provider) {
@@ -181,6 +205,17 @@ export class AcceptanceHarness {
     })()`);
   }
 
+  async readAskPanelState() {
+    return this.evaluate(this.page, `(() => {
+      const panel = document.querySelector('[data-testid="selection-ask-panel"]');
+      const quote = document.querySelector('[data-testid="selection-ask-quote-text"]');
+      return {
+        visible: !!panel && !panel.hidden,
+        quoteText: quote?.textContent.trim() || ''
+      };
+    })()`);
+  }
+
   async readOuterFloatingState() {
     return this.evaluate(this.page, `(() => {
       const floating = document.querySelector('[data-testid="floating-window"]');
@@ -217,6 +252,30 @@ export class AcceptanceHarness {
         return { top: r.top, right: r.right, bottom: r.bottom, left: r.left, width: r.width, height: r.height };
       }
     })()`);
+  }
+
+  async readFloatingReference() {
+    this.floating ||= await this.waitForTarget((target) =>
+      target.type === 'iframe' && target.url.includes('/floating/floating.html')
+    );
+    return this.evaluate(this.floating, `(() => {
+      const question = document.querySelector('[data-testid="floating-reference-question"]');
+      const text = document.querySelector('[data-testid="floating-reference-text"]');
+      return {
+        question: question?.textContent.trim() || '',
+        text: text?.textContent.trim() || ''
+      };
+    })()`);
+  }
+
+  async readFloatingInjectionState() {
+    this.floating ||= await this.waitForTarget((target) =>
+      target.type === 'iframe' && target.url.includes('/floating/floating.html')
+    );
+    return this.waitForEvaluation(this.floating, `(() => ({
+      autoSubmit: document.body.dataset.lastAutoSubmit || null,
+      promptLength: Number(document.body.dataset.lastPromptLength || 0)
+    }))()`, (value) => value?.autoSubmit !== null, 10000);
   }
 
   async readEmbeddedChatgptLayout() {
