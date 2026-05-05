@@ -144,11 +144,13 @@ async function renderProviderTabs() {
   const useDarkIcons = isDarkTheme();
 
   tabsContainer.innerHTML = '';
+  tabsContainer.dataset.activeProvider = currentProvider || '';
 
   // Add provider tabs
   enabledProviders.forEach(provider => {
     const button = document.createElement('button');
     button.dataset.providerId = provider.id;
+    button.dataset.testid = `sidebar-provider-tab-${provider.id}`;
     button.title = provider.name; // Tooltip shows name on hover
 
     // Create icon element - use dark icon if available and theme is dark
@@ -205,6 +207,7 @@ async function switchProvider(providerId) {
 
   // Hide non-provider views if currently active
   currentView = 'providers';
+  document.body.dataset.activeView = 'providers';
   document.getElementById('prompt-library').style.display = 'none';
   document.getElementById('chat-history').style.display = 'none';
 
@@ -238,6 +241,9 @@ async function switchProvider(providerId) {
   }
 
   currentProvider = providerId;
+  document.body.dataset.activeProvider = providerId;
+  document.getElementById('provider-tabs').dataset.activeProvider = providerId;
+  document.getElementById('provider-container').dataset.activeProvider = providerId;
 
   // Save last selected provider
   await chrome.storage.sync.set({ lastSelectedProvider: providerId });
@@ -743,6 +749,7 @@ function setupPromptLibrary() {
 
 function switchToView(view) {
   currentView = view;
+  document.body.dataset.activeView = view;
 
   // Hide all views first
   document.getElementById('provider-container').style.display = 'none';
@@ -771,6 +778,7 @@ function switchToView(view) {
     updateWorkspaceProviderSelector();  // Initialize provider selector with icons
   } else {
     // Switch back to providers view
+    document.body.dataset.activeView = 'providers';
     document.getElementById('provider-container').style.display = 'flex';
     if (currentProvider) {
       const providerTab = document.querySelector(`#provider-tabs button[data-provider-id="${currentProvider}"]`);

@@ -144,10 +144,14 @@ async function loadProvider(provider) {
 
   providerIframeReady = false;
   providerIframeId = provider.id;
+  document.body.dataset.activeProvider = provider.id;
+  providerShell.dataset.activeProvider = provider.id;
   await renderProviderTabs(provider.id);
   providerIframe = document.createElement('iframe');
   providerIframe.src = provider.url;
   providerIframe.title = provider.name;
+  providerIframe.dataset.testid = 'floating-provider-frame';
+  providerIframe.dataset.providerId = provider.id;
   providerIframe.sandbox = FRAME_SANDBOX;
   providerIframe.allow = 'clipboard-read; clipboard-write';
   providerIframe.loading = 'eager';
@@ -174,11 +178,13 @@ async function loadProvider(provider) {
 async function renderProviderTabs(activeProviderId = providerIframeId) {
   const enabledProviders = await getEnabledProviders();
   providerTabs.innerHTML = '';
+  providerTabs.dataset.activeProvider = activeProviderId || '';
 
   for (const provider of enabledProviders) {
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.providerId = provider.id;
+    button.dataset.testid = `floating-provider-tab-${provider.id}`;
     button.title = provider.name;
     button.setAttribute('aria-label', provider.name);
     if (provider.id === activeProviderId) {

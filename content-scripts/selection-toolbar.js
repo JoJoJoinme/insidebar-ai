@@ -59,12 +59,14 @@
   function createToolbar() {
     const element = document.createElement('div');
     element.id = toolbarId;
+    element.dataset.testid = 'selection-toolbar';
     element.hidden = true;
 
     for (const action of ACTIONS) {
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.action = action.id;
+      button.dataset.testid = `selection-toolbar-${action.id}`;
       button.textContent = action.label;
       button.title = action.title;
       button.addEventListener('click', handleActionClick);
@@ -153,6 +155,8 @@
   function createFloatingWindow() {
     const element = document.createElement('div');
     element.id = floatingWindowId;
+    element.dataset.testid = 'floating-window';
+    element.dataset.openSurface = 'floating';
     element.hidden = true;
 
     const header = document.createElement('div');
@@ -168,18 +172,21 @@
     const historyButton = createFloatingViewButton(
       'Open chat history',
       'icons/ui/chat-history.png',
+      'floating-open-chat-history',
       () => openFloatingUtilityView('chat-history')
     );
 
     const promptButton = createFloatingViewButton(
       'Open prompt library',
       'icons/ui/prompts.png',
+      'floating-open-prompt-library',
       () => openFloatingUtilityView('prompt-library')
     );
 
     const sidePanelButton = document.createElement('button');
     sidePanelButton.type = 'button';
     sidePanelButton.className = 'insidebar-selection-floating-control insidebar-selection-floating-dock';
+    sidePanelButton.dataset.testid = 'floating-dock';
     sidePanelButton.textContent = 'Dock';
     sidePanelButton.title = 'Open in sidebar';
     sidePanelButton.setAttribute('aria-label', 'Open floating Ask in sidebar');
@@ -188,6 +195,7 @@
     const optionsButton = document.createElement('button');
     optionsButton.type = 'button';
     optionsButton.className = 'insidebar-selection-floating-control';
+    optionsButton.dataset.testid = 'floating-options';
     optionsButton.textContent = '...';
     optionsButton.title = 'Open options';
     optionsButton.setAttribute('aria-label', 'Open insidebar.ai options');
@@ -200,6 +208,7 @@
     const closeButton = document.createElement('button');
     closeButton.type = 'button';
     closeButton.className = 'insidebar-selection-floating-close';
+    closeButton.dataset.testid = 'floating-close';
     closeButton.textContent = 'x';
     closeButton.title = 'Close';
     closeButton.setAttribute('aria-label', 'Close floating Ask window');
@@ -210,6 +219,7 @@
 
     const frame = document.createElement('iframe');
     frame.id = 'insidebar-selection-floating-frame';
+    frame.dataset.testid = 'floating-frame';
     frame.title = 'insidebar.ai Ask';
     frame.allow = 'clipboard-read; clipboard-write';
     frame.src = chrome.runtime.getURL('floating/floating.html');
@@ -228,10 +238,11 @@
     return element;
   }
 
-  function createFloatingViewButton(label, iconPath, onClick) {
+  function createFloatingViewButton(label, iconPath, testId, onClick) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'insidebar-selection-floating-control insidebar-selection-floating-view-control';
+    button.dataset.testid = testId;
     button.title = label;
     button.setAttribute('aria-label', label);
 
@@ -636,6 +647,9 @@
 
     if (data.providerId) {
       currentFloatingProviderId = data.providerId;
+      if (floatingWindow) {
+        floatingWindow.dataset.activeProvider = data.providerId;
+      }
     }
   }
 

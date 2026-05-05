@@ -22,8 +22,8 @@
   <link rel="preconnect" href="https://grok.com">
   <link rel="preconnect" href="https://chat.deepseek.com">
 </head>
-<body data-theme="auto">
-  <div id="app">
+<body data-theme="auto" data-open-surface="sidebar" data-active-view="providers">
+  <div id="app" data-testid="sidebar-app">
     <header id="sidebar-topbar">
       <div id="sidebar-title">insidebar.ai</div>
       <div id="sidebar-topbar-actions">
@@ -44,7 +44,7 @@
     </header>
 
     <!-- Provider iframe container -->
-    <div id="provider-container">
+    <div id="provider-container" data-testid="sidebar-provider-container">
       <div id="loading" style="display: none;">Loading AI provider...</div>
       <div id="error" style="display: none;"></div>
       <!-- Iframes will be dynamically inserted here -->
@@ -273,7 +273,7 @@
     </div>
 
     <!-- Provider and tool tabs -->
-    <nav id="provider-tabs">
+    <nav id="provider-tabs" data-testid="sidebar-provider-tabs">
       <!-- Provider tabs will be dynamically generated here -->
     </nav>
   </div>

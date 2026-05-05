@@ -1,0 +1,44 @@
+[
+  {
+    "id": "selection-floating-dock-provider",
+    "intent": "Selected text opens a floating chat, keeps provider controls stable, and preserves provider when docked",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "floating",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible" },
+      { "action": "clickToolbarAction", "name": "Send" },
+      { "assert": "floatingVisible" },
+      {
+        "assert": "floatingTopControls",
+        "includes": [
+          "floating-open-chat-history",
+          "floating-open-prompt-library",
+          "floating-dock",
+          "floating-options",
+          "floating-close"
+        ]
+      },
+      {
+        "assert": "floatingProviderTabs",
+        "activeProvider": "chatgpt",
+        "iconOnly": true,
+        "position": "bottom"
+      },
+      { "assert": "embeddedChatgptHeaderHidden" },
+      { "action": "switchFloatingProvider", "provider": "claude" },
+      { "assert": "floatingProvider", "provider": "claude" },
+      { "assert": "storageProvider", "provider": "claude" },
+      { "action": "dockFloating" },
+      { "assert": "storageProvider", "provider": "claude" },
+      { "assert": "sidebarProvider", "provider": "claude" },
+      { "assert": "sidebarProviderTabsOnly" }
+    ]
+  }
+]

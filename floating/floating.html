@@ -6,18 +6,18 @@
   <title>insidebar.ai Ask</title>
   <link rel="stylesheet" href="floating.css">
 </head>
-<body>
-  <div id="reference" hidden>
+<body data-testid="floating-app">
+  <div id="reference" data-testid="floating-reference" hidden>
     <div class="reference-label">Selected content</div>
     <div id="reference-question"></div>
     <div id="reference-text"></div>
   </div>
 
-  <div id="provider-shell">
-    <div id="status">Waiting for a question...</div>
+  <div id="provider-shell" data-testid="floating-provider-shell">
+    <div id="status" data-testid="floating-status">Waiting for a question...</div>
   </div>
 
-  <div id="floating-provider-tabs" aria-label="AI providers"></div>
+  <div id="floating-provider-tabs" data-testid="floating-provider-tabs" aria-label="AI providers"></div>
 
   <script type="module" src="floating.js"></script>
 </body>
