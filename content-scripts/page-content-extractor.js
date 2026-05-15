@@ -241,9 +241,10 @@
    */
   function formatContent(extracted, placement = 'end') {
     const titleLine = `[${extracted.title}]`;
+    const includeSource = shouldIncludeSourceUrl(extracted.url);
     const sourceLine = `Source: ${extracted.url}`;
 
-    if (placement === 'none') {
+    if (placement === 'none' || !includeSource) {
       // No URL - just title and content
       return `${titleLine}\n\n${extracted.content}`;
     } else if (placement === 'beginning') {
@@ -252,6 +253,35 @@
     } else {
       // Default: URL at end
       return `${titleLine}\n\n${extracted.content}\n\nSource: ${extracted.url}`;
+    }
+  }
+
+  function shouldIncludeSourceUrl(pageUrl) {
+    if (!pageUrl || typeof pageUrl !== 'string') {
+      return false;
+    }
+
+    try {
+      const url = new URL(pageUrl);
+      const hostname = url.hostname.toLowerCase();
+
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return false;
+      }
+
+      if (hostname === 'localhost' || hostname === '[::1]' || hostname.endsWith('.localhost')) {
+        return false;
+      }
+
+      return ![
+        /^10\./,
+        /^127\./,
+        /^169\.254\./,
+        /^192\.168\./,
+        /^172\.(1[6-9]|2\d|3[0-1])\./
+      ].some((pattern) => pattern.test(hostname));
+    } catch {
+      return false;
     }
   }
 

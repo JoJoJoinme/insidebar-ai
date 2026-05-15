@@ -4,6 +4,7 @@ import {
   findConversationByConversationId
 } from '../modules/history-manager.js';
 import { t, initializeLanguage } from '../modules/i18n.js';
+import { formatContentWithSource } from '../modules/source-formatter.js';
 
 // T008 & T065: Install event - setup context menus and configure side panel
 const DEFAULT_SHORTCUT_SETTING = { keyboardShortcutEnabled: true };
@@ -12,6 +13,10 @@ let keyboardShortcutEnabled = true;
 // T070: Track side panel state per window
 const sidePanelState = new Map(); // windowId -> boolean (true = open, false = closed)
 const PROVIDER_IDS = ['chatgpt', 'claude', 'gemini', 'google', 'grok', 'deepseek'];
+
+globalThis.__insidebarResetSidePanelStateForTests = () => {
+  sidePanelState.clear();
+};
 
 async function getDefaultProviderId() {
   const settings = await chrome.storage.sync.get({
@@ -33,19 +38,9 @@ async function getDefaultProviderId() {
   return enabledProviders[0] || 'chatgpt';
 }
 
-async function formatContentWithSource(text, pageUrl) {
+async function formatSelectedContentWithSource(text, pageUrl) {
   const settings = await chrome.storage.sync.get({ sourceUrlPlacement: 'end' });
-  const placement = settings.sourceUrlPlacement;
-
-  if (!pageUrl || placement === 'none') {
-    return text;
-  }
-
-  if (placement === 'beginning') {
-    return `Source: ${pageUrl}\n\n${text}`;
-  }
-
-  return `${text}\n\nSource: ${pageUrl}`;
+  return formatContentWithSource(text, pageUrl, settings.sourceUrlPlacement);
 }
 
 function isEnabledProviderId(providerId, enabledProviders = PROVIDER_IDS) {
@@ -53,18 +48,27 @@ function isEnabledProviderId(providerId, enabledProviders = PROVIDER_IDS) {
 }
 
 async function sendTextToProvider(windowId, providerId, selectedText, options = {}) {
-  setTimeout(() => {
-    notifyMessage({
-      action: 'switchProvider',
-      payload: {
-        providerId,
-        selectedText,
-        autoSubmit: options.autoSubmit === true
-      }
-    }).catch(() => {
-      // Sidebar may not be ready yet, silently ignore
-    });
-  }, 100);
+  const promptId = `provider-prompt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const payload = {
+    promptId,
+    providerId,
+    selectedText,
+    autoSubmit: options.autoSubmit === true,
+    createdAt: Date.now()
+  };
+
+  await chrome.storage.local.set({ pendingProviderPrompt: payload });
+
+  for (const delay of [100, 300, 700]) {
+    setTimeout(() => {
+      notifyMessage({
+        action: 'switchProvider',
+        payload
+      }).catch(() => {
+        // Sidebar may not be ready yet; pendingProviderPrompt is consumed on init.
+      });
+    }, delay);
+  }
 }
 
 async function loadShortcutSetting() {
@@ -203,15 +207,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       // Check if text is selected
       if (info.selectionText) {
         // Format content with source based on user preference
-        let contentToSend;
-        if (placement === 'none') {
-          contentToSend = info.selectionText;
-        } else if (placement === 'beginning') {
-          contentToSend = `Source: ${info.pageUrl}\n\n${info.selectionText}`;
-        } else {
-          // default: 'end'
-          contentToSend = `${info.selectionText}\n\nSource: ${info.pageUrl}`;
-        }
+        const contentToSend = formatContentWithSource(info.selectionText, info.pageUrl, placement);
 
         // Wait for sidebar to load, then send message to switch provider
         setTimeout(() => {
@@ -271,15 +267,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       // Check if text is selected
       if (info.selectionText) {
         // Format content with source based on user preference
-        let contentToSend;
-        if (placement === 'none') {
-          contentToSend = info.selectionText;
-        } else if (placement === 'beginning') {
-          contentToSend = `Source: ${info.pageUrl}\n\n${info.selectionText}`;
-        } else {
-          // default: 'end'
-          contentToSend = `${info.selectionText}\n\nSource: ${info.pageUrl}`;
-        }
+        const contentToSend = formatContentWithSource(info.selectionText, info.pageUrl, placement);
 
         // Wait for sidebar to load, then switch to prompt library
         setTimeout(() => {
@@ -367,6 +355,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sidePanelState.set(sender.tab.windowId, false);
     }
     sendResponse({ success: true });
+  } else if (message.action === 'resetSidePanelStateForTests') {
+    sidePanelState.clear();
+    sendResponse({ success: true });
   } else if (message.action === 'saveConversationFromPage') {
     // Handle conversation save from ChatGPT page
     handleSaveConversation(message.payload, sender).then(sendResponse);
@@ -382,6 +373,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'selectionToolbarSend') {
     handleSelectionToolbarSend(message.payload, sender).then(sendResponse);
     return true; // Keep channel open for async response
+  } else if (message.action === 'getSelectionToolbarSurface') {
+    sendResponse({
+      openSurface: sender.tab?.windowId && sidePanelState.get(sender.tab.windowId) ? 'sidePanel' : 'floating'
+    });
   } else if (message.action === 'openFloatingAskFromSidebar') {
     handleOpenFloatingAskFromSidebar(message.payload).then(sendResponse);
     return true; // Keep channel open for async response
@@ -419,7 +414,7 @@ async function handleSelectionToolbarSend(payload, sender) {
     ? payload.providerId
     : await getDefaultProviderId();
   await chrome.storage.sync.set({ lastSelectedProvider: providerId });
-  const selectedText = await formatContentWithSource(payload.prompt, payload.pageUrl);
+  const selectedText = await formatSelectedContentWithSource(payload.prompt, payload.pageUrl);
   await sendTextToProvider(sender.tab.windowId, providerId, selectedText, {
     autoSubmit: payload.autoSubmit === true || settings.selectionToolbarAutoSubmit === true
   });
@@ -489,11 +484,24 @@ async function handleOpenSidePanelFromFloating(sender, payload = {}, options = {
   const enabledProviders = settings.enabledProviders.filter(providerId => PROVIDER_IDS.includes(providerId));
   if (isEnabledProviderId(payload.providerId, enabledProviders)) {
     await chrome.storage.sync.set({ lastSelectedProvider: payload.providerId });
+    if (typeof payload.providerUrl === 'string' && payload.providerUrl.startsWith('http')) {
+      await chrome.storage.local.set({
+        pendingDockProvider: {
+          providerId: payload.providerId,
+          providerUrl: payload.providerUrl,
+          createdAt: Date.now()
+        }
+      });
+    }
     if (options.switchProvider !== false) {
       setTimeout(() => {
         notifyMessage({
           action: 'switchProvider',
-          payload: { providerId: payload.providerId, selectedText: '' }
+          payload: {
+            providerId: payload.providerId,
+            providerUrl: payload.providerUrl,
+            selectedText: ''
+          }
         }).catch(() => {
           // Sidebar may still be loading; persisted provider state will be used on init.
         });

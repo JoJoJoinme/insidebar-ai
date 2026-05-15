@@ -1,4 +1,5 @@
 import { PROVIDERS, getProviderByIdWithSettings } from '../modules/providers.js';
+import { formatContentWithSource } from '../modules/source-formatter.js';
 
 const DEFAULT_ENABLED_PROVIDERS = [
   'chatgpt',
@@ -22,10 +23,29 @@ let providerIframe = null;
 let providerIframeId = null;
 let providerIframeReady = false;
 let providerIframeLoadPromise = null;
+let currentProviderUrl = null;
+let pendingLocationRequestId = null;
 
 window.addEventListener('message', (event) => {
   const data = event.data;
   if (!data) {
+    return;
+  }
+
+  if (data.type === 'INSIDEBAR_PROVIDER_LOCATION') {
+    handleProviderLocation(event, data);
+    return;
+  }
+
+  if (data.type === 'INSIDEBAR_FLOATING_STATUS_REQUEST') {
+    pendingLocationRequestId = data.requestId || null;
+    refreshProviderLocation();
+    window.setTimeout(() => {
+      if (pendingLocationRequestId === data.requestId) {
+        pendingLocationRequestId = null;
+        notifyParent(undefined, providerIframeId, data.requestId);
+      }
+    }, 1000);
     return;
   }
 
@@ -119,18 +139,6 @@ async function getDefaultProviderId() {
   return enabledProviders[0] || 'chatgpt';
 }
 
-function formatContentWithSource(text, pageUrl, placement) {
-  if (!pageUrl || placement === 'none') {
-    return text;
-  }
-
-  if (placement === 'beginning') {
-    return `Source: ${pageUrl}\n\n${text}`;
-  }
-
-  return `${text}\n\nSource: ${pageUrl}`;
-}
-
 async function loadProvider(provider) {
   if (providerIframe && providerIframeId === provider.id) {
     await renderProviderTabs(provider.id);
@@ -144,6 +152,8 @@ async function loadProvider(provider) {
 
   providerIframeReady = false;
   providerIframeId = provider.id;
+  currentProviderUrl = provider.url;
+  document.body.dataset.providerUrl = provider.url;
   document.body.dataset.activeProvider = provider.id;
   providerShell.dataset.activeProvider = provider.id;
   await renderProviderTabs(provider.id);
@@ -251,11 +261,53 @@ function injectPrompt(prompt, autoSubmit) {
   document.body.dataset.lastAutoSubmit = autoSubmit ? 'true' : 'false';
   document.body.dataset.lastPromptLength = String(prompt.length);
 
-  providerIframe.contentWindow.postMessage({
+  const targetWindow = providerIframe.contentWindow;
+  const requestId = `floating-inject-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const payload = {
     type: 'INJECT_TEXT',
     text: prompt,
-    autoSubmit
+    autoSubmit,
+    requestId
+  };
+
+  targetWindow.postMessage(payload, '*');
+
+  // Retry a few times for pages where the provider listener initializes after the first postMessage.
+  for (const retryMs of [120, 320, 700, 1300]) {
+    window.setTimeout(() => {
+      if (providerIframe?.contentWindow === targetWindow) {
+        targetWindow.postMessage(payload, '*');
+      }
+    }, retryMs);
+  }
+}
+
+function refreshProviderLocation() {
+  if (!providerIframe?.contentWindow) {
+    return;
+  }
+
+  providerIframe.contentWindow.postMessage({
+    type: 'INSIDEBAR_PROVIDER_LOCATION_REQUEST'
   }, '*');
+}
+
+function handleProviderLocation(event, data) {
+  if (!providerIframe?.contentWindow || event.source !== providerIframe.contentWindow) {
+    return;
+  }
+
+  if (data.provider && data.provider !== providerIframeId) {
+    return;
+  }
+
+  if (typeof data.url === 'string' && data.url.startsWith('http')) {
+    currentProviderUrl = data.url;
+    document.body.dataset.providerUrl = data.url;
+    const requestId = pendingLocationRequestId;
+    pendingLocationRequestId = null;
+    notifyParent(providerIframe?.title ? `insidebar.ai Ask - ${providerIframe.title}` : undefined, providerIframeId, requestId);
+  }
 }
 
 function setReference(payload) {
@@ -288,10 +340,12 @@ function setStatus(message) {
   status.hidden = false;
 }
 
-function notifyParent(title, providerId = providerIframeId) {
+function notifyParent(title, providerId = providerIframeId, requestId = null) {
   window.parent.postMessage({
     type: 'INSIDEBAR_FLOATING_STATUS',
     title,
-    providerId
+    providerId,
+    providerUrl: currentProviderUrl,
+    requestId
   }, '*');
 }

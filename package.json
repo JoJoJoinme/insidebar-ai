@@ -9,15 +9,18 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "test:ui": "vitest --ui",
+    "test:quality-gate": "node scripts/check-quality-gate.mjs",
     "test:acceptance:spec": "node tests/acceptance/check-spec.mjs",
     "test:acceptance": "npm run test:acceptance:spec && node tests/acceptance/runner.mjs",
+    "test:acceptance:real:setup": "node tests/acceptance/real-provider-setup.mjs",
+    "test:acceptance:real": "node tests/acceptance/real-provider-smoke.mjs",
     "test:e2e:cft": "npm run test:acceptance",
-    "test:required": "npm test -- --run && npm run test:acceptance"
+    "test:required": "npm run test:quality-gate && npm test -- --run && npm run test:acceptance"
   },
   "devDependencies": {
     "@vitest/ui": "^3.2.4",
     "happy-dom": "^20.0.2",
     "vitest": "^3.2.4",
-    "web-ext": "^9.0.0"
+    "web-ext": "^10.1.0"
   }
 }

@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,33 +9,50 @@ import { fileURLToPath } from 'node:url';
 export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const defaultChromeBin = '/root/.cache/puppeteer/chrome/linux-144.0.7559.96/chrome-linux64/chrome';
 
+const PROVIDER_IDS = ['chatgpt', 'claude', 'gemini', 'google', 'grok', 'deepseek'];
+const ACCEPTANCE_PROVIDER_MATCH = 'http://127.0.0.1/*';
+
 export class AcceptanceHarness {
   constructor(options = {}) {
     this.chromeBin = options.chromeBin || process.env.CHROME_BIN || defaultChromeBin;
-    this.port = Number(options.port || process.env.CFT_PORT || 9394);
+    const configuredPort = options.port ?? process.env.CFT_PORT;
+    this.port = configuredPort == null ? 0 : Number(configuredPort);
     this.unpackedDir = options.unpackedDir || process.env.EXT_DIR || path.join(repoRoot, 'dist/insidebar-ai-chrome-unpacked');
     this.profileDir = options.profileDir || process.env.CFT_PROFILE || path.join(os.tmpdir(), `insidebar-acceptance-${Date.now()}`);
     this.artifactDir = options.artifactDir || path.join(repoRoot, 'dist/acceptance-artifacts');
     this.fixtureDir = options.fixtureDir || path.join(repoRoot, 'tests/acceptance/fixtures');
+    this.useFakeProviders = options.useFakeProviders !== false;
+    this.preserveProfile = options.preserveProfile === true || process.env.ACCEPTANCE_PRESERVE_PROFILE === '1';
+    this.chromeArgs = Array.isArray(options.chromeArgs) ? options.chromeArgs : [];
     this.chromeProcess = null;
     this.fixtureServer = null;
     this.fixtureOrigin = null;
+    this.providerOrigin = null;
     this.serviceWorker = null;
     this.page = null;
     this.sidebar = null;
     this.floating = null;
+    this.scenarioTargetIds = new Set();
   }
 
   async start() {
     if (!fs.existsSync(this.chromeBin)) {
       throw new Error(`Chrome for Testing binary not found: ${this.chromeBin}`);
     }
+    if (!Number.isInteger(this.port) || this.port < 0 || this.port > 65535) {
+      throw new Error(`Invalid Chrome debug port: ${this.port}`);
+    }
+    if (this.port === 0) {
+      this.port = await findFreePort();
+    }
 
-    this.prepareUnpackedExtension();
     fs.mkdirSync(this.artifactDir, { recursive: true });
-    fs.rmSync(this.profileDir, { recursive: true, force: true });
+    if (!this.preserveProfile) {
+      fs.rmSync(this.profileDir, { recursive: true, force: true });
+    }
     fs.mkdirSync(this.profileDir, { recursive: true });
     await this.startFixtureServer();
+    this.prepareUnpackedExtension();
 
     this.chromeProcess = spawn(this.chromeBin, [
       `--remote-debugging-port=${this.port}`,
@@ -47,6 +65,7 @@ export class AcceptanceHarness {
       '--no-sandbox',
       '--disable-gpu',
       '--window-size=1365,960',
+      ...this.chromeArgs,
       'about:blank'
     ], { stdio: 'ignore' });
 
@@ -57,14 +76,58 @@ export class AcceptanceHarness {
   }
 
   async stop() {
-    await new Promise((resolve) => this.fixtureServer?.close(resolve));
+    if (process.env.ACCEPTANCE_TRACE === '1') {
+      console.log('harness stop: fixture server');
+    }
+    if (this.fixtureServer) {
+      await Promise.race([
+        new Promise((resolve) => this.fixtureServer.close(resolve)),
+        delay(1200)
+      ]);
+    }
+    if (process.env.ACCEPTANCE_TRACE === '1') {
+      console.log('harness stop: chrome');
+    }
     if (process.env.KEEP_CHROME !== '1') {
-      this.chromeProcess?.kill('SIGTERM');
+      await this.stopChrome();
+    }
+    if (process.env.ACCEPTANCE_TRACE === '1') {
+      console.log('harness stop done');
     }
   }
 
   async applySettings(settings = {}) {
-    await this.evaluate(this.serviceWorker, `chrome.storage.sync.set(${JSON.stringify(settings)})`);
+    if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings: reset local pending');
+    await this.evaluate(this.serviceWorker, storageCall('local', 'set', {
+      pendingDockProvider: null,
+      pendingProviderPrompt: null
+    }));
+    if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings: reset side panel');
+    await this.evaluate(this.serviceWorker, `globalThis.__insidebarResetSidePanelStateForTests?.()`);
+    if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings: sync set');
+    await this.evaluate(this.serviceWorker, storageCall('sync', 'set', settings));
+    if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings done');
+  }
+
+  beginScenario() {
+    this.page = null;
+    this.sidebar = null;
+    this.floating = null;
+    this.scenarioTargetIds.clear();
+  }
+
+  async endScenario() {
+    const targetIds = Array.from(this.scenarioTargetIds).reverse();
+    for (const targetId of targetIds) {
+      await Promise.race([
+        this.closeTarget(targetId),
+        delay(1200)
+      ]);
+    }
+    this.scenarioTargetIds.clear();
+    this.page = null;
+    this.sidebar = null;
+    this.floating = null;
   }
 
   fixtureUrl(fileName) {
@@ -75,6 +138,7 @@ export class AcceptanceHarness {
     const url = this.fixtureUrl(fileName);
     const target = await this.newPage(url);
     this.page = target;
+    this.trackTarget(target);
     await this.navigate(target, url);
     return target;
   }
@@ -105,12 +169,8 @@ export class AcceptanceHarness {
 
   async clickToolbarAction(actionName) {
     const action = actionName.toLowerCase();
-    await this.evaluate(this.page, `(async () => {
-      const button = document.querySelector('[data-testid="selection-toolbar-${escapeForSelector(action)}"]');
-      if (!button) throw new Error('Toolbar action not found: ${escapeJs(actionName)}');
-      button.click();
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    })()`);
+    await this.clickByTestId(this.page, `selection-toolbar-${action}`);
+    await delay(250);
   }
 
   async waitForFloating() {
@@ -138,12 +198,10 @@ export class AcceptanceHarness {
         });
       }
     })()`);
-    this.floating = await this.waitForTarget((target) =>
-      target.type === 'iframe' && target.url.includes('/floating/floating.html')
-    );
+    this.floating = await this.resolveFloatingTarget();
   }
 
-  async submitAskQuestion(question) {
+  async submitAskQuestion(question, options = {}) {
     await this.evaluate(this.page, `(async () => {
       const panel = document.querySelector('[data-testid="selection-ask-panel"]');
       if (!panel || panel.hidden) {
@@ -158,13 +216,15 @@ export class AcceptanceHarness {
       input.dispatchEvent(new Event('input', { bubbles: true }));
       send.click();
     })()`);
-    await this.waitForFloating();
+    if (options.waitForFloating !== false) {
+      await this.waitForFloating();
+    } else {
+      await delay(250);
+    }
   }
 
   async switchFloatingProvider(provider) {
-    this.floating ||= await this.waitForTarget((target) =>
-      target.type === 'iframe' && target.url.includes('/floating/floating.html')
-    );
+    this.floating ||= await this.resolveFloatingTarget();
     await this.evaluate(this.floating, `(async () => {
       const button = document.querySelector('[data-testid="floating-provider-tab-${escapeForSelector(provider)}"]');
       if (!button) throw new Error('Floating provider tab not found: ${escapeJs(provider)}');
@@ -196,12 +256,17 @@ export class AcceptanceHarness {
     this.sidebar = await this.waitForTarget((target) =>
       target.type === 'page' && target.url.includes('/sidebar/sidebar.html')
     );
+    this.trackTarget(this.sidebar);
   }
 
   async readToolbarState() {
     return this.evaluate(this.page, `(() => {
       const toolbar = document.querySelector('[data-testid="selection-toolbar"]');
-      return { visible: !!toolbar && !toolbar.hidden };
+      return {
+        visible: !!toolbar && !toolbar.hidden,
+        openMode: toolbar?.dataset.openMode || null,
+        settingsLoaded: toolbar?.dataset.settingsLoaded || null
+      };
     })()`);
   }
 
@@ -228,11 +293,19 @@ export class AcceptanceHarness {
     })()`);
   }
 
+  async readOuterFloatingHiddenState() {
+    return this.evaluate(this.page, `(() => {
+      const floating = document.querySelector('[data-testid="floating-window"]');
+      return {
+        exists: !!floating,
+        hidden: !floating || floating.hidden
+      };
+    })()`);
+  }
+
   async readFloatingLayout() {
-    this.floating ||= await this.waitForTarget((target) =>
-      target.type === 'iframe' && target.url.includes('/floating/floating.html')
-    );
-    return this.evaluate(this.floating, `(() => {
+    this.floating ||= await this.resolveFloatingTarget();
+    return this.waitForEvaluation(this.floating, `(() => {
       const shell = document.querySelector('[data-testid="floating-provider-shell"]');
       const tabs = document.querySelector('[data-testid="floating-provider-tabs"]');
       const iframe = document.querySelector('[data-testid="floating-provider-frame"]');
@@ -251,13 +324,11 @@ export class AcceptanceHarness {
         const r = element.getBoundingClientRect();
         return { top: r.top, right: r.right, bottom: r.bottom, left: r.left, width: r.width, height: r.height };
       }
-    })()`);
+    })()`, (value) => !!value?.shell && !!value?.tabs && value.tabs.height > 0, 10000, 'floating provider layout');
   }
 
   async readFloatingReference() {
-    this.floating ||= await this.waitForTarget((target) =>
-      target.type === 'iframe' && target.url.includes('/floating/floating.html')
-    );
+    this.floating ||= await this.resolveFloatingTarget();
     return this.evaluate(this.floating, `(() => {
       const question = document.querySelector('[data-testid="floating-reference-question"]');
       const text = document.querySelector('[data-testid="floating-reference-text"]');
@@ -269,18 +340,54 @@ export class AcceptanceHarness {
   }
 
   async readFloatingInjectionState() {
-    this.floating ||= await this.waitForTarget((target) =>
-      target.type === 'iframe' && target.url.includes('/floating/floating.html')
-    );
+    this.floating ||= await this.resolveFloatingTarget();
     return this.waitForEvaluation(this.floating, `(() => ({
       autoSubmit: document.body.dataset.lastAutoSubmit || null,
       promptLength: Number(document.body.dataset.lastPromptLength || 0)
-    }))()`, (value) => value?.autoSubmit !== null, 10000);
+    }))()`, (value) => value?.autoSubmit !== null, 10000, 'floating prompt injection state');
+  }
+
+  async readEmbeddedProviderLayout(provider) {
+    const floatingTarget = await this.resolveFloatingTarget();
+    const providerFrame = await this.resolveProviderFrameTarget(provider, floatingTarget);
+    return this.waitForEvaluation(providerFrame, `(() => {
+      const header = document.querySelector('header');
+      return {
+        hasLayoutStyle: !!document.getElementById('insidebar-embedded-provider-layout'),
+        headerDisplay: header ? getComputedStyle(header).display : null
+      };
+    })()`, (value) => value.hasLayoutStyle && value.headerDisplay === 'none', 8000, `embedded ${provider} layout`);
+  }
+
+  async readProviderInjectionState(provider, options = {}) {
+    const floatingTarget = await this.resolveFloatingTarget();
+    return this.waitForProviderInjectionState(
+      provider,
+      floatingTarget,
+      options,
+      `fake ${provider} provider injection state`
+    );
+  }
+
+  async readSidebarProviderInjectionState(provider, options = {}) {
+    const sidebarTarget = await this.resolveSidebarTarget();
+    return this.waitForProviderInjectionState(
+      provider,
+      sidebarTarget,
+      options,
+      `sidebar fake ${provider} provider injection state`
+    );
   }
 
   async readEmbeddedChatgptLayout() {
-    const chatgptFrame = await this.waitForTarget((target) =>
-      target.type === 'iframe' && target.url.startsWith('https://chatgpt.com/')
+    const floatingTarget = await this.resolveFloatingTarget();
+    const chatgptFrame = await this.waitForTarget(
+      (target) =>
+        target.type === 'iframe' &&
+        target.parentId === floatingTarget.id &&
+        target.url.startsWith('https://chatgpt.com/'),
+      15000,
+      'ChatGPT iframe'
     );
     return this.waitForEvaluation(chatgptFrame, `(() => {
       const header = document.querySelector('header');
@@ -288,7 +395,7 @@ export class AcceptanceHarness {
         hasLayoutStyle: !!document.getElementById('insidebar-embedded-provider-layout'),
         headerDisplay: header ? getComputedStyle(header).display : null
       };
-    })()`, (value) => value.hasLayoutStyle && value.headerDisplay === 'none', 8000);
+    })()`, (value) => value.hasLayoutStyle && value.headerDisplay === 'none', 8000, 'embedded ChatGPT layout');
   }
 
   async readStorageProvider() {
@@ -297,19 +404,19 @@ export class AcceptanceHarness {
   }
 
   async readSidebarState() {
-    this.sidebar ||= await this.waitForTarget((target) =>
-      target.type === 'page' && target.url.includes('/sidebar/sidebar.html')
-    );
+    this.sidebar ||= await this.resolveSidebarTarget();
     return this.waitForEvaluation(this.sidebar, `(() => {
       const tabs = document.querySelector('[data-testid="sidebar-provider-tabs"]');
       const container = document.querySelector('[data-testid="sidebar-provider-container"]');
+      const providerFrame = container?.querySelector('iframe:not([style*="display: none"])');
       return {
         activeProvider: tabs?.dataset.activeProvider || null,
         providerVisible: container ? getComputedStyle(container).display : null,
+        providerFrameUrl: providerFrame?.src || '',
         bottomTestIds: Array.from(tabs?.querySelectorAll('button[data-testid]') || [])
           .map((button) => button.dataset.testid)
       };
-    })()`, (value) => value?.activeProvider && value.providerVisible === 'flex', 10000);
+    })()`, (value) => value?.activeProvider && value.providerVisible === 'flex', 10000, 'sidebar provider state');
   }
 
   async writeFailureArtifacts(scenarioId, error) {
@@ -352,6 +459,34 @@ export class AcceptanceHarness {
         // ignore artifact failures
       }
     }
+
+    if (this.floating) {
+      try {
+        await this.captureScreenshot(this.floating, path.join(dir, 'floating.png'));
+      } catch {
+        // ignore artifact failures
+      }
+      try {
+        const contracts = await this.readContracts(this.floating);
+        fs.writeFileSync(path.join(dir, 'floating-contracts.json'), JSON.stringify(contracts, null, 2));
+      } catch {
+        // ignore artifact failures
+      }
+    }
+
+    if (this.sidebar) {
+      try {
+        await this.captureScreenshot(this.sidebar, path.join(dir, 'sidebar.png'));
+      } catch {
+        // ignore artifact failures
+      }
+      try {
+        const contracts = await this.readContracts(this.sidebar);
+        fs.writeFileSync(path.join(dir, 'sidebar-contracts.json'), JSON.stringify(contracts, null, 2));
+      } catch {
+        // ignore artifact failures
+      }
+    }
   }
 
   prepareUnpackedExtension() {
@@ -366,6 +501,68 @@ export class AcceptanceHarness {
         recursive: true
       });
     }
+    if (this.useFakeProviders) {
+      this.patchAcceptanceExtension();
+    }
+  }
+
+  patchAcceptanceExtension() {
+    this.patchManifestForFakeProviders();
+    this.patchProviderUrls();
+    this.patchTextInjectionProviderDetection();
+  }
+
+  patchManifestForFakeProviders() {
+    const manifestPath = path.join(this.unpackedDir, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const alreadyPatched = manifest.content_scripts.some((entry) =>
+      entry.matches?.includes(ACCEPTANCE_PROVIDER_MATCH) &&
+      entry.js?.includes('content-scripts/text-injection-all-providers.js')
+    );
+
+    if (!alreadyPatched) {
+      manifest.content_scripts.push({
+        matches: [ACCEPTANCE_PROVIDER_MATCH],
+        js: ['content-scripts/text-injection-all-providers.js'],
+        run_at: 'document_start',
+        all_frames: true
+      });
+    }
+
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+
+  patchProviderUrls() {
+    const providersPath = path.join(this.unpackedDir, 'modules/providers.js');
+    let source = fs.readFileSync(providersPath, 'utf8');
+
+    for (const providerId of PROVIDER_IDS) {
+      const pattern = new RegExp(`(id:\\s*'${providerId}'[\\s\\S]*?url:\\s*)'[^']+'`);
+      const nextSource = source.replace(pattern, `$1'${this.fakeProviderUrl(providerId)}'`);
+      if (nextSource === source) {
+        throw new Error(`Unable to patch fake acceptance URL for provider: ${providerId}`);
+      }
+      source = nextSource;
+    }
+
+    fs.writeFileSync(providersPath, source);
+  }
+
+  patchTextInjectionProviderDetection() {
+    const scriptPath = path.join(this.unpackedDir, 'content-scripts/text-injection-all-providers.js');
+    let source = fs.readFileSync(scriptPath, 'utf8');
+    const needle = `    const hostname = window.location.hostname;\n    if (hostname.includes('chatgpt.com') || hostname.includes('openai.com')) {`;
+    const replacement = `    const acceptanceProvider = new URLSearchParams(window.location.search).get('provider');\n    if (window.location.hostname === '127.0.0.1' && PROVIDER_SELECTORS[acceptanceProvider]) {\n      PROVIDER_SELECTORS[acceptanceProvider] = [\n        '[data-testid=\"fake-provider-input\"]',\n        ...(PROVIDER_SELECTORS[acceptanceProvider] || [])\n      ];\n      return acceptanceProvider;\n    }\n\n    const hostname = window.location.hostname;\n    if (hostname.includes('chatgpt.com') || hostname.includes('openai.com')) {`;
+
+    if (!source.includes(needle)) {
+      throw new Error('Unable to patch fake provider detection in text injection script');
+    }
+
+    fs.writeFileSync(scriptPath, source.replace(needle, replacement));
+  }
+
+  fakeProviderUrl(providerId) {
+    return `${this.providerOrigin}/fake-provider.html?provider=${encodeURIComponent(providerId)}`;
   }
 
   async startFixtureServer() {
@@ -385,6 +582,7 @@ export class AcceptanceHarness {
     await new Promise((resolve) => this.fixtureServer.listen(0, '127.0.0.1', resolve));
     const address = this.fixtureServer.address();
     this.fixtureOrigin = `http://127.0.0.1:${address.port}`;
+    this.providerOrigin = this.fixtureOrigin;
   }
 
   async waitForDebugEndpoint() {
@@ -416,15 +614,135 @@ export class AcceptanceHarness {
     return response.json();
   }
 
-  async waitForTarget(predicate, timeout = 15000) {
+  async waitForTarget(predicate, timeout = 15000, label = 'CDP target') {
     const deadline = Date.now() + timeout;
+    let lastTargets = [];
     while (Date.now() < deadline) {
-      const targets = await this.getTargets();
-      const target = targets.find(predicate);
+      lastTargets = await this.getTargets();
+      const matches = lastTargets.filter(predicate);
+      const target = matches[matches.length - 1] || null;
       if (target) return target;
       await delay(250);
     }
-    throw new Error('Timed out waiting for CDP target');
+    throw new Error(`Timed out waiting for ${label}: ${JSON.stringify(lastTargets.map((target) => ({
+      id: target.id,
+      type: target.type,
+      parentId: target.parentId,
+      url: target.url
+    })))}`);
+  }
+
+  async resolveFloatingTarget() {
+    const pageId = this.page?.id;
+    this.floating ||= await this.waitForTarget(
+      (target) =>
+        target.type === 'iframe' &&
+        target.url.includes('/floating/floating.html') &&
+        (!pageId || target.parentId === pageId),
+      15000,
+      'floating iframe'
+    );
+    this.trackTarget(this.floating);
+    return this.floating;
+  }
+
+  async resolveSidebarTarget() {
+    this.sidebar ||= await this.waitForTarget(
+      (target) => target.type === 'page' && target.url.includes('/sidebar/sidebar.html'),
+      15000,
+      'sidebar page'
+    );
+    this.trackTarget(this.sidebar);
+    return this.sidebar;
+  }
+
+  async resolveProviderFrameTarget(provider, floatingTarget = null) {
+    const matches = await this.resolveProviderFrameTargets(provider, floatingTarget);
+    return matches[0] || null;
+  }
+
+  async resolveProviderFrameTargets(provider, floatingTarget = null) {
+    const parent = floatingTarget || await this.resolveFloatingTarget();
+    const isMatch = (target) =>
+      target.type === 'iframe' &&
+      target.parentId === parent.id &&
+      target.url.includes('/fake-provider.html') &&
+      target.url.includes(`provider=${encodeURIComponent(provider)}`);
+
+    await this.waitForTarget(isMatch, 15000, `${provider} fake provider iframe`);
+    const targets = await this.getTargets();
+    const matches = targets.filter(isMatch).reverse();
+    for (const target of matches) {
+      this.trackTarget(target);
+    }
+    return matches;
+  }
+
+  async waitForProviderInjectionState(provider, parentTarget, options = {}, label = 'fake provider injection state') {
+    const deadline = Date.now() + 10000;
+    let lastStates = [];
+
+    while (Date.now() < deadline) {
+      const frames = await this.resolveProviderFrameTargets(provider, parentTarget);
+      lastStates = [];
+
+      for (const frame of frames) {
+        try {
+          const state = await this.evaluate(frame, `(() => {
+            const input = document.querySelector('[data-testid="fake-provider-input"]');
+            const inputValue = input?.value || input?.textContent || '';
+            return {
+              inputValue,
+              inputLength: inputValue.length,
+              messageAutoSubmit: document.body.dataset.lastMessageAutoSubmit || null,
+              messageLength: Number(document.body.dataset.lastMessageTextLength || 0),
+              submitCount: Number(document.body.dataset.submitCount || 0),
+              submittedText: document.body.dataset.submittedText || ''
+            };
+          })()`);
+          lastStates.push({ targetId: frame.id, ...state });
+          if (state?.inputLength > 0 && (!options.waitForSubmit || state.submitCount > 0)) {
+            return state;
+          }
+        } catch (error) {
+          lastStates.push({ targetId: frame.id, error: error?.message || String(error) });
+        }
+      }
+
+      await delay(250);
+    }
+
+    throw new Error(`Timed out waiting for ${label}: ${JSON.stringify(lastStates)}`);
+  }
+
+  trackTarget(target) {
+    if (target?.id) {
+      this.scenarioTargetIds.add(target.id);
+    }
+  }
+
+  async closeTarget(targetId) {
+    if (!targetId) {
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1000);
+    try {
+      await fetch(`http://127.0.0.1:${this.port}/json/close/${targetId}`, {
+        signal: controller.signal
+      });
+    } catch {
+      // ignore cleanup failures
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async activateTarget(targetId) {
+    if (!targetId) {
+      return;
+    }
+    await fetch(`http://127.0.0.1:${this.port}/json/activate/${targetId}`);
   }
 
   async navigate(target, url) {
@@ -449,7 +767,7 @@ export class AcceptanceHarness {
     return response.result?.result?.value;
   }
 
-  async waitForEvaluation(target, expression, predicate, timeout = 10000) {
+  async waitForEvaluation(target, expression, predicate, timeout = 10000, label = 'evaluation') {
     const deadline = Date.now() + timeout;
     let lastValue = null;
     while (Date.now() < deadline) {
@@ -459,7 +777,7 @@ export class AcceptanceHarness {
       }
       await delay(250);
     }
-    return lastValue;
+    throw new Error(`Timed out waiting for ${label}: ${JSON.stringify(lastValue)}`);
   }
 
   async clickByTestId(target, testId) {
@@ -483,6 +801,40 @@ export class AcceptanceHarness {
     const screenshot = await client.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
     client.close();
     fs.writeFileSync(filePath, Buffer.from(screenshot.result.data, 'base64'));
+  }
+
+  async readContracts(target) {
+    return this.evaluate(target, `(() => Array.from(document.querySelectorAll('[data-testid]')).map((element) => ({
+      tag: element.tagName,
+      testid: element.dataset.testid,
+      hidden: element.hidden,
+      text: element.textContent.trim().slice(0, 120),
+      rect: (() => {
+        const r = element.getBoundingClientRect();
+        return { top: r.top, left: r.left, width: r.width, height: r.height };
+      })()
+    })))()`);
+  }
+
+  async stopChrome() {
+    if (!this.chromeProcess || this.chromeProcess.exitCode !== null) {
+      return;
+    }
+
+    const exited = new Promise((resolve) => {
+      this.chromeProcess.once('exit', resolve);
+    });
+    this.chromeProcess.kill('SIGTERM');
+
+    const didExit = await Promise.race([
+      exited.then(() => true),
+      delay(3000).then(() => false)
+    ]);
+
+    if (!didExit && this.chromeProcess.exitCode === null) {
+      this.chromeProcess.kill('SIGKILL');
+      await exited;
+    }
   }
 }
 
@@ -527,12 +879,40 @@ export function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      server.close(() => resolve(address.port));
+    });
+  });
+}
+
 function contentType(filePath) {
   if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
   if (filePath.endsWith('.json')) return 'application/json; charset=utf-8';
   if (filePath.endsWith('.js')) return 'text/javascript; charset=utf-8';
   if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
   return 'text/plain; charset=utf-8';
+}
+
+function storageCall(area, method, value = null) {
+  const args = value == null ? '' : `${JSON.stringify(value)}, `;
+  return `new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('chrome.storage.${area}.${method} timed out')), 3000);
+    chrome.storage.${area}.${method}(${args}() => {
+      clearTimeout(timeout);
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve(true);
+    });
+  })`;
 }
 
 function escapeJs(value) {

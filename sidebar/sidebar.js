@@ -39,7 +39,8 @@ let currentInsertPromptId = null;  // T071: For insert prompt modal
 let isShowingFavorites = false;
 let currentSortOrder = 'recent';  // T071: Current sort order
 let isSwitchingProvider = false;
-let pendingProviderId = null;
+let pendingProviderSwitch = null;
+const handledProviderPromptIds = new Set();
 const EDGE_SHORTCUT_STORAGE_KEY = 'edgeShortcutReminderDismissed';
 
 // Chat History state
@@ -185,9 +186,9 @@ async function openFloatingWindow() {
 }
 
 // T015: Switch to a provider
-async function switchProvider(providerId) {
+async function switchProvider(providerId, options = {}) {
   if (isSwitchingProvider) {
-    pendingProviderId = providerId;
+    pendingProviderSwitch = { providerId, options };
     return;
   }
 
@@ -197,10 +198,10 @@ async function switchProvider(providerId) {
     showError(`Provider ${providerId} not found`);
     isSwitchingProvider = false;
     // Process any pending switch request
-    if (pendingProviderId && pendingProviderId !== providerId) {
-      const next = pendingProviderId;
-      pendingProviderId = null;
-      switchProvider(next);
+    if (pendingProviderSwitch && shouldProcessPendingSwitch(pendingProviderSwitch, providerId, options)) {
+      const next = pendingProviderSwitch;
+      pendingProviderSwitch = null;
+      switchProvider(next.providerId, next.options);
     }
     return;
   }
@@ -232,12 +233,20 @@ async function switchProvider(providerId) {
     loadedIframes.get(currentProvider).style.display = 'none';
   }
 
+  const providerUrl = getProviderFrameUrl(provider, options.providerUrl);
+  const shouldNavigateLoadedProvider = typeof options.providerUrl === 'string';
+
   // Load or show provider iframe
   if (!loadedIframes.has(providerId)) {
-    const iframe = createProviderIframe(provider);
+    const iframe = createProviderIframe(provider, providerUrl);
     loadedIframes.set(providerId, iframe);
   } else {
-    loadedIframes.get(providerId).style.display = 'block';
+    const iframe = loadedIframes.get(providerId);
+    iframe.style.display = 'block';
+    if (shouldNavigateLoadedProvider && providerUrl && iframe.src !== providerUrl) {
+      loadedIframesState.set(providerId, 'loading');
+      iframe.src = providerUrl;
+    }
   }
 
   currentProvider = providerId;
@@ -251,21 +260,33 @@ async function switchProvider(providerId) {
   hideError();
 
   isSwitchingProvider = false;
-  if (pendingProviderId && pendingProviderId !== providerId) {
-    const next = pendingProviderId;
-    pendingProviderId = null;
-    switchProvider(next);
+  if (pendingProviderSwitch && shouldProcessPendingSwitch(pendingProviderSwitch, providerId, options)) {
+    const next = pendingProviderSwitch;
+    pendingProviderSwitch = null;
+    switchProvider(next.providerId, next.options);
   } else {
-    pendingProviderId = null;
+    pendingProviderSwitch = null;
   }
 }
 
+function shouldProcessPendingSwitch(pendingSwitch, providerId, options = {}) {
+  if (!pendingSwitch) {
+    return false;
+  }
+
+  if (pendingSwitch.providerId !== providerId) {
+    return true;
+  }
+
+  return !!pendingSwitch.options?.providerUrl && pendingSwitch.options.providerUrl !== options.providerUrl;
+}
+
 // T016: Create iframe for provider
-function createProviderIframe(provider) {
+function createProviderIframe(provider, url = provider.url) {
   const container = document.getElementById('provider-container');
   const iframe = document.createElement('iframe');
 
-  iframe.src = provider.url;
+  iframe.src = url;
   // Sandbox must allow same-origin + scripts so provider UIs can function; popups are
   // permitted to support OAuth flows within embedded sites. See README "Permissions"
   // for the full security rationale.
@@ -292,6 +313,24 @@ function createProviderIframe(provider) {
   return iframe;
 }
 
+function getProviderFrameUrl(provider, requestedUrl) {
+  if (!requestedUrl || typeof requestedUrl !== 'string') {
+    return provider.url;
+  }
+
+  try {
+    const requested = new URL(requestedUrl);
+    const base = new URL(provider.url);
+    if (requested.origin === base.origin) {
+      return requested.href;
+    }
+  } catch {
+    // Fall back to the provider home URL for malformed dock payloads.
+  }
+
+  return provider.url;
+}
+
 // T017: Load default or last selected provider
 async function loadDefaultProvider() {
   const settings = await chrome.storage.sync.get({
@@ -299,13 +338,83 @@ async function loadDefaultProvider() {
     defaultProvider: 'chatgpt',
     rememberLastProvider: true
   });
+  const { pendingDockProvider, pendingProviderPrompt } = await chrome.storage.local.get({
+    pendingDockProvider: null,
+    pendingProviderPrompt: null
+  });
 
   // If rememberLastProvider is enabled, use last selected; otherwise always use default
   const providerId = settings.rememberLastProvider
     ? (settings.lastSelectedProvider || settings.defaultProvider)
     : settings.defaultProvider;
 
-  await switchProvider(providerId);
+  const pendingDock = getPendingDockProvider(pendingDockProvider, providerId);
+  if (pendingDock) {
+    await chrome.storage.local.remove('pendingDockProvider');
+  }
+
+  await switchProvider(providerId, {
+    providerUrl: pendingDock?.providerUrl
+  });
+
+  const pendingPrompt = getPendingProviderPrompt(pendingProviderPrompt, providerId);
+  if (pendingPrompt) {
+    await injectPendingProviderPrompt(pendingPrompt, { switchFirst: false });
+  }
+}
+
+function getPendingDockProvider(pendingDockProvider, providerId) {
+  if (!pendingDockProvider || pendingDockProvider.providerId !== providerId) {
+    return null;
+  }
+
+  if (Date.now() - Number(pendingDockProvider.createdAt || 0) > 30000) {
+    return null;
+  }
+
+  return pendingDockProvider;
+}
+
+function getPendingProviderPrompt(pendingProviderPrompt, providerId) {
+  if (!pendingProviderPrompt || pendingProviderPrompt.providerId !== providerId || !pendingProviderPrompt.selectedText) {
+    return null;
+  }
+
+  if (Date.now() - Number(pendingProviderPrompt.createdAt || 0) > 30000) {
+    return null;
+  }
+
+  return pendingProviderPrompt;
+}
+
+async function injectPendingProviderPrompt(payload, options = {}) {
+  if (!payload?.providerId || !payload.selectedText) {
+    return;
+  }
+
+  if (payload.promptId) {
+    if (handledProviderPromptIds.has(payload.promptId)) {
+      return;
+    }
+    handledProviderPromptIds.add(payload.promptId);
+  }
+
+  if (options.switchFirst !== false) {
+    await switchProvider(payload.providerId, {
+      providerUrl: payload.providerUrl
+    });
+  }
+
+  await injectTextIntoProvider(payload.providerId, payload.selectedText, {
+    autoSubmit: payload.autoSubmit === true
+  });
+
+  if (payload.promptId) {
+    const { pendingProviderPrompt } = await chrome.storage.local.get({ pendingProviderPrompt: null });
+    if (pendingProviderPrompt?.promptId === payload.promptId) {
+      await chrome.storage.local.remove('pendingProviderPrompt');
+    }
+  }
 }
 
 // T018: Setup message listener
@@ -315,13 +424,13 @@ function setupMessageListener() {
     (async () => {
       try {
         if (message.action === 'switchProvider') {
-          await switchProvider(message.payload.providerId);
+          await switchProvider(message.payload.providerId, {
+            providerUrl: message.payload.providerUrl
+          });
 
           // If there's selected text, inject it into the provider iframe
           if (message.payload.selectedText) {
-            await injectTextIntoProvider(message.payload.providerId, message.payload.selectedText, {
-              autoSubmit: message.payload.autoSubmit === true
-            });
+            await injectPendingProviderPrompt(message.payload, { switchFirst: false });
           }
 
           sendResponse({ success: true });

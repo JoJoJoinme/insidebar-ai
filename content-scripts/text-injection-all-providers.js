@@ -241,6 +241,46 @@
     setTimeout(tryClick, 250);
   }
 
+  const handledInjectRequestIds = [];
+  const MAX_HANDLED_INJECT_REQUEST_IDS = 100;
+
+  function hasHandledInjectRequest(requestId) {
+    return requestId && handledInjectRequestIds.includes(requestId);
+  }
+
+  function rememberHandledInjectRequest(requestId) {
+    if (!requestId) {
+      return;
+    }
+    handledInjectRequestIds.push(requestId);
+    if (handledInjectRequestIds.length > MAX_HANDLED_INJECT_REQUEST_IDS) {
+      handledInjectRequestIds.shift();
+    }
+  }
+
+  let lastReportedProviderUrl = '';
+
+  function notifyProviderLocation(provider, options = {}) {
+    if (window.top === window || !provider) {
+      return;
+    }
+
+    if (!options.force && window.location.href === lastReportedProviderUrl) {
+      return;
+    }
+    lastReportedProviderUrl = window.location.href;
+
+    try {
+      window.parent.postMessage({
+        type: 'INSIDEBAR_PROVIDER_LOCATION',
+        provider,
+        url: window.location.href
+      }, '*');
+    } catch (error) {
+      console.warn('[Text Injection] Failed to report provider location:', error);
+    }
+  }
+
   // Handle text injection message
   function handleTextInjection(event) {
     // Validate event data structure
@@ -256,6 +296,7 @@
     // Validate text payload
     const text = event.data.text;
     const autoSubmit = event.data.autoSubmit === true;
+    const requestId = typeof event.data.requestId === 'string' ? event.data.requestId : '';
     if (!text || typeof text !== 'string' || text.length === 0) {
       console.warn('[Text Injection] Invalid text payload');
       return;
@@ -278,6 +319,11 @@
       console.warn('No selectors configured for provider:', provider);
       return;
     }
+
+    if (hasHandledInjectRequest(requestId)) {
+      return;
+    }
+    rememberHandledInjectRequest(requestId);
 
     // Try each selector until we find an element
     let element = null;
@@ -316,6 +362,16 @@
   }
 
   // Listen for messages from sidebar
-  applyEmbeddedProviderLayout(detectProvider());
+  const provider = detectProvider();
+  applyEmbeddedProviderLayout(provider);
+  notifyProviderLocation(provider);
   window.addEventListener('message', handleTextInjection);
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'INSIDEBAR_PROVIDER_LOCATION_REQUEST') {
+      notifyProviderLocation(detectProvider(), { force: true });
+    }
+  });
+  window.addEventListener('popstate', () => notifyProviderLocation(detectProvider()));
+  window.addEventListener('hashchange', () => notifyProviderLocation(detectProvider()));
+  window.setInterval(() => notifyProviderLocation(detectProvider()), 1000);
 })();

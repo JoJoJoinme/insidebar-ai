@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "updated": "2026-05-12",
+  "project": "insidebar-ai",
+  "invariants": [
+    {
+      "id": "IB-INV-001",
+      "title": "Floating Chrome Stability",
+      "status": "covered",
+      "user_task": "IB-TASK-001",
+      "risk": "The floating provider opens, but expected controls or provider tabs disappear or move into an unusable state.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-floating-dock-provider",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The acceptance scenario checks floating top controls, icon-only provider tabs, active provider, and embedded header hiding."
+    },
+    {
+      "id": "IB-INV-002",
+      "title": "Provider Selection Persistence",
+      "status": "covered",
+      "user_task": "IB-TASK-002",
+      "risk": "Switching provider in floating mode does not survive storage or docking, so the sidebar opens the wrong provider.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-floating-dock-provider",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The scenario switches to Claude, asserts storage, docks, and asserts the sidebar provider."
+    },
+    {
+      "id": "IB-INV-003",
+      "title": "Ask Auto Submit Semantics",
+      "status": "covered",
+      "user_task": "IB-TASK-003",
+      "risk": "Ask captures the question but fails to send it to the provider, sends a prompt without context, or disables auto-submit for the initial handoff.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-ask-autosubmit",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The scenario checks the ask panel, floating reference question, auto-submit flag, submitted flag, and prompt length."
+    },
+    {
+      "id": "IB-INV-004",
+      "title": "Docked Sidebar Continuation",
+      "status": "covered",
+      "user_task": "IB-TASK-004",
+      "risk": "After docking, a later selection action reopens floating state or reloads the sidebar provider home page instead of continuing the existing provider session.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-ask-autosubmit",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The scenario asserts the submitted conversation URL, sends a second selection to the sidebar provider, asserts the URL is preserved, and checks floating remains hidden."
+    },
+    {
+      "id": "IB-INV-005",
+      "title": "Private Source Redaction",
+      "status": "covered",
+      "user_task": "IB-TASK-005",
+      "risk": "Localhost, loopback, or private-network URLs leak into provider prompts from development or internal pages.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "unit",
+            "ref": "tests/source-formatter.test.js",
+            "command": "npm test -- --run tests/source-formatter.test.js"
+          },
+          {
+            "type": "acceptance",
+            "ref": "selection-ask-autosubmit",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "Unit coverage checks source URL formatting rules; acceptance coverage checks the fake provider does not receive the local fixture URL."
+    },
+    {
+      "id": "IB-INV-006",
+      "title": "Fake Provider Boundary",
+      "status": "exploratory",
+      "user_task": "IB-TASK-001 IB-TASK-003 IB-TASK-004",
+      "risk": "Fake-provider acceptance can pass while a real provider changes DOM/editor behavior and breaks injection or auto-submit.",
+      "proof": {
+        "deterministic": [],
+        "real_live": [
+          {
+            "type": "file",
+            "ref": "tests/acceptance/real-provider-smoke.mjs",
+            "command": "REAL_PROVIDER=chatgpt npm run test:acceptance:real"
+          }
+        ],
+        "manual": []
+      },
+      "notes": "Run npm run test:acceptance:real:setup once to create a usable live-provider profile, then run the real-provider smoke command. Promote this invariant to covered only after success.json is produced under dist/acceptance-artifacts-real."
+    },
+    {
+      "id": "IB-INV-007",
+      "title": "Sidebar Direct Routing",
+      "status": "covered",
+      "user_task": "IB-TASK-007",
+      "risk": "A user who configured sidebar mode still gets floating UI, or sidebar opens but misses the selected prompt.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-sidepanel-direct-send",
+            "command": "npm run test:acceptance"
+          },
+          {
+            "type": "acceptance",
+            "ref": "selection-sidepanel-direct-ask",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The scenarios assert sidePanel open mode, sidebar provider injection, auto-submit behavior for Ask, local URL redaction, and floating hidden state."
+    },
+    {
+      "id": "IB-INV-008",
+      "title": "Toolbar Template Integrity",
+      "status": "covered",
+      "user_task": "IB-TASK-006",
+      "risk": "Explain, Translate, or Summary can silently send raw text or the wrong instruction template.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-action-explain-prompt",
+            "command": "npm run test:acceptance"
+          },
+          {
+            "type": "acceptance",
+            "ref": "selection-action-translate-prompt",
+            "command": "npm run test:acceptance"
+          },
+          {
+            "type": "acceptance",
+            "ref": "selection-action-summary-prompt",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "Each action scenario asserts the provider received the action-specific instruction prefix and did not receive a local fixture source URL."
+    },
+    {
+      "id": "IB-INV-009",
+      "title": "Switched Floating Provider Injection",
+      "status": "covered",
+      "user_task": "IB-TASK-008",
+      "risk": "After switching provider in floating mode, the next prompt can target the old provider or reuse stale selected text.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-floating-switched-provider-prompt",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The scenario switches to Claude, selects a different paragraph, then asserts Claude receives the new selection."
+    }
+  ]
+}

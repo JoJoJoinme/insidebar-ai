@@ -12,12 +12,12 @@
     "steps": [
       { "action": "openPage", "fixture": "article-page.html" },
       { "action": "selectText", "target": "mainParagraph" },
-      { "assert": "selectionToolbarVisible" },
+      { "assert": "selectionToolbarVisible", "openMode": "floating" },
       { "action": "clickToolbarAction", "name": "Send" },
       { "assert": "floatingVisible" },
       {
         "assert": "floatingTopControls",
-        "includes": [
+        "equals": [
           "floating-open-chat-history",
           "floating-open-prompt-library",
           "floating-dock",
@@ -29,16 +29,17 @@
         "assert": "floatingProviderTabs",
         "activeProvider": "chatgpt",
         "iconOnly": true,
-        "position": "bottom"
+        "position": "bottom",
+        "providerTitles": ["ChatGPT", "Claude", "Gemini", "Google", "Grok", "DeepSeek"]
       },
-      { "assert": "embeddedChatgptHeaderHidden" },
+      { "assert": "embeddedProviderHeaderHidden", "provider": "chatgpt" },
       { "action": "switchFloatingProvider", "provider": "claude" },
       { "assert": "floatingProvider", "provider": "claude" },
       { "assert": "storageProvider", "provider": "claude" },
       { "action": "dockFloating" },
       { "assert": "storageProvider", "provider": "claude" },
       { "assert": "sidebarProvider", "provider": "claude" },
-      { "assert": "sidebarProviderTabsOnly" }
+      { "assert": "sidebarProviderTabsOnly", "providers": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"] }
     ]
   },
   {
@@ -54,14 +55,211 @@
     "steps": [
       { "action": "openPage", "fixture": "article-page.html" },
       { "action": "selectText", "target": "mainParagraph" },
-      { "assert": "selectionToolbarVisible" },
+      { "assert": "selectionToolbarVisible", "openMode": "floating" },
       { "action": "clickToolbarAction", "name": "Ask", "waitForFloating": false },
       { "assert": "askPanelVisible", "quoteIncludes": "Industry produced over 90 percent of notable frontier AI models" },
       { "action": "submitAskQuestion", "question": "What is the main point of this paragraph?" },
       { "assert": "floatingVisible" },
       { "assert": "floatingReferenceQuestion", "includes": "What is the main point of this paragraph?" },
       { "assert": "floatingAutoSubmit", "value": true, "minPromptLength": 150 },
-      { "assert": "storageProvider", "provider": "chatgpt" }
+      {
+        "assert": "providerReceivedPrompt",
+        "provider": "chatgpt",
+        "includes": "What is the main point of this paragraph?",
+        "autoSubmit": true,
+        "submitted": true,
+        "minPromptLength": 150
+      },
+      { "assert": "storageProvider", "provider": "chatgpt" },
+      { "action": "dockFloating" },
+      { "assert": "sidebarProvider", "provider": "chatgpt" },
+      { "assert": "sidebarProviderUrl", "includes": "conversation=submitted-1" },
+      { "action": "selectText", "target": "secondaryParagraph" },
+      { "assert": "selectionToolbarVisible", "openMode": "floating" },
+      { "action": "clickToolbarAction", "name": "Send", "waitForFloating": false },
+      {
+        "assert": "sidebarProviderReceivedPrompt",
+        "provider": "chatgpt",
+        "includes": "controlled page is intentionally simple",
+        "excludes": "Source: http://127.0.0.1",
+        "autoSubmit": false,
+        "submitted": false,
+        "minPromptLength": 80
+      },
+      { "assert": "sidebarProviderUrl", "includes": "conversation=submitted-1" },
+      { "assert": "floatingHidden" }
+    ]
+  },
+  {
+    "id": "selection-sidepanel-direct-send",
+    "intent": "Selected text sends directly to the sidebar when sidePanel open mode is configured",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "sidePanel",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible", "openMode": "sidePanel" },
+      { "action": "clickToolbarAction", "name": "Send", "waitForFloating": false },
+      { "assert": "sidebarProvider", "provider": "chatgpt" },
+      {
+        "assert": "sidebarProviderReceivedPrompt",
+        "provider": "chatgpt",
+        "includes": "Industry produced over 90 percent of notable frontier AI models",
+        "excludes": "Source: http://127.0.0.1",
+        "autoSubmit": false,
+        "submitted": false,
+        "minPromptLength": 120
+      },
+      { "assert": "floatingHidden" }
+    ]
+  },
+  {
+    "id": "selection-sidepanel-direct-ask",
+    "intent": "Ask sends directly to the sidebar with auto-submit when sidePanel open mode is configured",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "sidePanel",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "secondaryParagraph" },
+      { "assert": "selectionToolbarVisible", "openMode": "sidePanel" },
+      { "action": "clickToolbarAction", "name": "Ask", "waitForFloating": false },
+      { "assert": "askPanelVisible", "quoteIncludes": "controlled page is intentionally simple" },
+      { "action": "submitAskQuestion", "question": "Why is this fixture useful?", "waitForFloating": false },
+      { "assert": "sidebarProvider", "provider": "chatgpt" },
+      {
+        "assert": "sidebarProviderReceivedPrompt",
+        "provider": "chatgpt",
+        "includes": "Why is this fixture useful?",
+        "excludes": "Source: http://127.0.0.1",
+        "autoSubmit": true,
+        "submitted": true,
+        "minPromptLength": 150
+      },
+      { "assert": "floatingHidden" }
+    ]
+  },
+  {
+    "id": "selection-action-explain-prompt",
+    "intent": "Explain action wraps selected text with the explain prompt template",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "floating",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible" },
+      { "action": "clickToolbarAction", "name": "Explain" },
+      { "assert": "floatingVisible" },
+      {
+        "assert": "providerReceivedPrompt",
+        "provider": "chatgpt",
+        "includes": "Explain the following content clearly",
+        "excludes": "Source: http://127.0.0.1",
+        "autoSubmit": false,
+        "submitted": false,
+        "minPromptLength": 180
+      }
+    ]
+  },
+  {
+    "id": "selection-action-translate-prompt",
+    "intent": "Translate action wraps selected text with the translate prompt template",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "floating",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible" },
+      { "action": "clickToolbarAction", "name": "Translate" },
+      { "assert": "floatingVisible" },
+      {
+        "assert": "providerReceivedPrompt",
+        "provider": "chatgpt",
+        "includes": "Translate the following text into the user's preferred language",
+        "excludes": "Source: http://127.0.0.1",
+        "autoSubmit": false,
+        "submitted": false,
+        "minPromptLength": 220
+      }
+    ]
+  },
+  {
+    "id": "selection-action-summary-prompt",
+    "intent": "Summary action wraps selected text with the summary prompt template",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "floating",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible" },
+      { "action": "clickToolbarAction", "name": "Summary" },
+      { "assert": "floatingVisible" },
+      {
+        "assert": "providerReceivedPrompt",
+        "provider": "chatgpt",
+        "includes": "Summarize the following content concisely",
+        "excludes": "Source: http://127.0.0.1",
+        "autoSubmit": false,
+        "submitted": false,
+        "minPromptLength": 190
+      }
+    ]
+  },
+  {
+    "id": "selection-floating-switched-provider-prompt",
+    "intent": "After switching floating provider, the next selection prompt is injected into the selected provider",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "floating",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible" },
+      { "action": "clickToolbarAction", "name": "Send" },
+      { "assert": "floatingVisible" },
+      { "action": "switchFloatingProvider", "provider": "claude" },
+      { "assert": "floatingProvider", "provider": "claude" },
+      { "assert": "storageProvider", "provider": "claude" },
+      { "action": "selectText", "target": "secondaryParagraph" },
+      { "assert": "selectionToolbarVisible" },
+      { "action": "clickToolbarAction", "name": "Send" },
+      {
+        "assert": "providerReceivedPrompt",
+        "provider": "claude",
+        "includes": "controlled page is intentionally simple",
+        "excludes": "Source: http://127.0.0.1",
+        "autoSubmit": false,
+        "submitted": false,
+        "minPromptLength": 80
+      }
     ]
   }
 ]

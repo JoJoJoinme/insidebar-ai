@@ -38,6 +38,7 @@
 
   "background": {
     "service_worker": "background/service-worker.js",
+    "scripts": ["background/service-worker.js"],
     "type": "module"
   },
 
@@ -230,6 +231,7 @@
         "icons/ui/chat-history.png",
         "icons/ui/prompts.png",
         "modules/providers.js",
+        "modules/source-formatter.js",
         "_locales/en/messages.json",
         "_locales/zh_CN/messages.json",
         "_locales/zh_TW/messages.json"
@@ -240,5 +242,16 @@
 
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "insidebar-ai@local.dev",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
   }
 }

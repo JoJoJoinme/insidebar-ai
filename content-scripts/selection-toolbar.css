@@ -163,7 +163,7 @@
 
 #insidebar-selection-floating-window {
   position: fixed;
-  z-index: 2147483647;
+  z-index: 2147483646;
   top: 12px;
   left: 12px;
   display: flex;

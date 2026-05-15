@@ -54,3 +54,14 @@ web-ext-artifacts/
 
 # Documentation (local reference only)
 docs/
+
+# Quality contract kit
+!AGENTS.md
+!docs/
+docs/*
+!docs/behavior-contract.md
+!docs/verification-matrix.json
+!docs/workboard.md
+!scripts/
+scripts/*
+!scripts/check-quality-gate.mjs

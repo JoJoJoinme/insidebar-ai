@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insidebar Fake Provider</title>
+  <style>
+    body {
+      margin: 0;
+      color: #162033;
+      background: #f7f9fc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      padding: 12px 16px;
+      color: #ffffff;
+      background: #26364f;
+      font-weight: 600;
+    }
+
+    main {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    textarea {
+      min-height: 180px;
+      padding: 12px;
+      border: 1px solid #b8c2d0;
+      border-radius: 6px;
+      font: inherit;
+      resize: vertical;
+    }
+
+    button {
+      width: max-content;
+      padding: 8px 14px;
+      border: 0;
+      border-radius: 6px;
+      color: #ffffff;
+      background: #225ea8;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    output {
+      color: #556273;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body data-testid="fake-provider">
+  <header data-testid="fake-provider-header">Fake Provider</header>
+  <main>
+    <textarea id="prompt-textarea" data-testid="fake-provider-input" aria-label="Prompt input"></textarea>
+    <button type="button" data-testid="send-button" aria-label="Send">Send</button>
+    <output data-testid="fake-provider-output"></output>
+  </main>
+
+  <script>
+    const input = document.querySelector('[data-testid="fake-provider-input"]');
+    const send = document.querySelector('[data-testid="send-button"]');
+    const output = document.querySelector('[data-testid="fake-provider-output"]');
+
+    window.addEventListener('message', (event) => {
+      if (event.data?.type !== 'INJECT_TEXT') {
+        return;
+      }
+
+      document.body.dataset.lastMessageAutoSubmit = String(event.data.autoSubmit === true);
+      document.body.dataset.lastMessageTextLength = String(event.data.text?.length || 0);
+    });
+
+    send.addEventListener('click', () => {
+      const submitCount = Number(document.body.dataset.submitCount || 0) + 1;
+      document.body.dataset.submitCount = String(submitCount);
+      document.body.dataset.submittedText = input.value;
+      output.value = `submitted:${submitCount}`;
+      output.textContent = output.value;
+      const url = new URL(window.location.href);
+      url.searchParams.set('conversation', `submitted-${submitCount}`);
+      history.pushState({}, '', url);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  </script>
+</body>
+</html>

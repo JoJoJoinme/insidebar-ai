@@ -36,17 +36,20 @@
   let pendingFloatingPayload = null;
   let currentFloatingPayload = null;
   let currentFloatingProviderId = null;
+  let currentFloatingProviderUrl = null;
   let selectedText = '';
   let askPanelText = '';
   let askPanelAnchorRect = null;
   let selectionToolbarOpenMode = DEFAULT_OPEN_MODE;
+  let selectionToolbarSettingsLoaded = false;
+  let selectionToolbarSettingsReady = null;
   let hideTimer = null;
 
   if (PROVIDER_HOSTS.has(window.location.hostname) || window.top !== window) {
     return;
   }
 
-  loadSelectionToolbarOpenMode();
+  selectionToolbarSettingsReady = loadSelectionToolbarOpenMode();
 
   if (chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -295,17 +298,36 @@
   }
 
   function loadSelectionToolbarOpenMode() {
-    try {
-      chrome.storage.sync.get({ selectionToolbarOpenMode: DEFAULT_OPEN_MODE }, (settings) => {
-        if (chrome.runtime.lastError) {
-          selectionToolbarOpenMode = DEFAULT_OPEN_MODE;
-          return;
-        }
-        selectionToolbarOpenMode = normalizeOpenMode(settings.selectionToolbarOpenMode);
-      });
-    } catch (error) {
-      selectionToolbarOpenMode = DEFAULT_OPEN_MODE;
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.sync.get({ selectionToolbarOpenMode: DEFAULT_OPEN_MODE }, (settings) => {
+          if (chrome.runtime.lastError) {
+            selectionToolbarOpenMode = DEFAULT_OPEN_MODE;
+          } else {
+            selectionToolbarOpenMode = normalizeOpenMode(settings.selectionToolbarOpenMode);
+          }
+          selectionToolbarSettingsLoaded = true;
+          resolve();
+        });
+      } catch (error) {
+        selectionToolbarOpenMode = DEFAULT_OPEN_MODE;
+        selectionToolbarSettingsLoaded = true;
+        resolve();
+      }
+    });
+  }
+
+  function ensureSelectionToolbarSettingsLoaded() {
+    if (selectionToolbarSettingsLoaded) {
+      return true;
     }
+
+    selectionToolbarSettingsReady?.finally(() => {
+      if (getSelectionInfo()) {
+        showToolbar();
+      }
+    });
+    return false;
   }
 
   function normalizeOpenMode(value) {
@@ -315,6 +337,10 @@
   function showToolbar() {
     window.clearTimeout(hideTimer);
 
+    if (!ensureSelectionToolbarSettingsLoaded()) {
+      return;
+    }
+
     const info = getSelectionInfo();
     if (!info) {
       hideToolbar();
@@ -323,6 +349,8 @@
 
     selectedText = info.text.slice(0, MAX_SELECTION_LENGTH);
     const element = getToolbar();
+    element.dataset.openMode = selectionToolbarOpenMode;
+    element.dataset.settingsLoaded = String(selectionToolbarSettingsLoaded);
     element.hidden = false;
 
     const margin = 8;
@@ -463,6 +491,15 @@
       return;
     }
 
+    if (await isCurrentSurfaceSidePanel()) {
+      try {
+        await sendPrompt(payload.prompt, { autoSubmit: true });
+      } catch (error) {
+        console.warn('[insidebar.ai] Failed to send selected text:', error);
+      }
+      return;
+    }
+
     openFloatingConversation(payload, anchorRect);
   }
 
@@ -554,30 +591,54 @@
   }
 
   async function openFloatingInSidePanel() {
-    const payload = currentFloatingPayload;
-    if (!payload?.prompt) {
-      hideFloatingWindow();
-      try {
-        await chrome.runtime.sendMessage({
-          action: 'openSidePanelFromFloating',
-          payload: { providerId: currentFloatingProviderId }
-        });
-      } catch (error) {
-        console.warn('[insidebar.ai] Failed to open sidebar:', error);
-      }
-      return;
-    }
-
-    hideFloatingWindow();
-
     try {
-      await sendPrompt(payload.prompt, {
-        providerId: currentFloatingProviderId,
-        autoSubmit: payload.autoSubmit === true
+      await refreshFloatingProviderStatus();
+      hideFloatingWindow();
+      await chrome.runtime.sendMessage({
+        action: 'openSidePanelFromFloating',
+        payload: {
+          providerId: currentFloatingProviderId,
+          providerUrl: currentFloatingProviderUrl
+        }
       });
     } catch (error) {
       console.warn('[insidebar.ai] Failed to open selected text in sidebar:', error);
+      hideFloatingWindow();
     }
+  }
+
+  function refreshFloatingProviderStatus() {
+    if (!floatingFrameReady || !floatingFrame?.contentWindow) {
+      return Promise.resolve();
+    }
+
+    const requestId = `dock-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    return new Promise((resolve) => {
+      const timeout = window.setTimeout(() => {
+        window.removeEventListener('message', onMessage);
+        resolve();
+      }, 1000);
+
+      function onMessage(event) {
+        if (event.source !== floatingFrame.contentWindow) {
+          return;
+        }
+
+        if (event.data?.type === 'INSIDEBAR_FLOATING_STATUS' && event.data.requestId === requestId) {
+          window.clearTimeout(timeout);
+          window.removeEventListener('message', onMessage);
+          handleFloatingMessage(event);
+          resolve();
+        }
+      }
+
+      window.addEventListener('message', onMessage);
+      floatingFrame.contentWindow.postMessage({
+        type: 'INSIDEBAR_FLOATING_STATUS_REQUEST',
+        requestId
+      }, '*');
+    });
   }
 
   async function openFloatingUtilityView(view) {
@@ -657,6 +718,13 @@
         floatingWindow.dataset.activeProvider = data.providerId;
       }
     }
+
+    if (typeof data.providerUrl === 'string' && data.providerUrl.startsWith('http')) {
+      currentFloatingProviderUrl = data.providerUrl;
+      if (floatingWindow) {
+        floatingWindow.dataset.providerUrl = data.providerUrl;
+      }
+    }
   }
 
   function clamp(value, min, max) {
@@ -681,7 +749,7 @@
   async function handleActionClick(event) {
     const action = event.currentTarget.dataset.action;
     const info = getSelectionInfo();
-    const text = (selectedText || info?.text || '').slice(0, MAX_SELECTION_LENGTH);
+    const text = (info?.text || selectedText || '').slice(0, MAX_SELECTION_LENGTH);
     if (!text) {
       hideToolbar();
       return;
@@ -706,6 +774,15 @@
       return;
     }
 
+    if (await isCurrentSurfaceSidePanel()) {
+      try {
+        await sendPrompt(prompt);
+      } catch (error) {
+        console.warn('[insidebar.ai] Failed to send selected text:', error);
+      }
+      return;
+    }
+
     openFloatingConversation({
       action,
       actionLabel: getActionLabel(action),
@@ -718,6 +795,18 @@
 
   function getActionLabel(action) {
     return ACTIONS.find((item) => item.id === action)?.label || 'Ask';
+  }
+
+  async function isCurrentSurfaceSidePanel() {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'getSelectionToolbarSurface',
+        payload: {}
+      });
+      return response?.openSurface === 'sidePanel';
+    } catch {
+      return false;
+    }
   }
 
   document.addEventListener('mouseup', () => {
