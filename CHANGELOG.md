@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-05-24
+
+### Added
+- Selection toolbar acceptance coverage for Send, Translate, Summary, and Ask journeys.
+- Real-provider smoke commands with strict, interactive, and browser-environment variants.
+- Auth-wall fallback UI for both floating and docked ChatGPT provider views.
+
+### Fixed
+- Floating and docked provider views now stay mutually exclusive.
+- Provider auth walls are no longer treated as fake-provider injection regressions.
+- Selection toolbar routing now keeps user-selected content intact across provider flows.
+
 ## [1.7.0] - 2025-10-25
 
 ### Added
@@ -157,6 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.7.2]: https://github.com/JoJoJoinme/insidebar-ai/releases/tag/v1.7.2
 [1.7.0]: https://github.com/xiaolai/insidebar-ai/releases/tag/v1.7.0
 [1.6.0]: https://github.com/xiaolai/insidebar-ai/releases/tag/v1.6.0
 [1.3.0]: https://github.com/xiaolai/insidebar-ai/releases/tag/v1.3.0
