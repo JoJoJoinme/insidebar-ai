@@ -120,7 +120,7 @@
         ],
         "manual": []
       },
-      "notes": "Run npm run test:acceptance:real:setup once to create a usable live-provider profile, then run the real-provider smoke command. Promote this invariant to covered only after success.json is produced under dist/acceptance-artifacts-real."
+      "notes": "Run npm run test:acceptance:real:setup once to create a usable live-provider profile, then run the real-provider smoke command. The smoke records editor_ready, auth_required, or anti_bot_blocked so provider/session blockers are not confused with fake-provider regressions."
     },
     {
       "id": "IB-INV-007",
@@ -216,7 +216,7 @@
         "real_live": [],
         "manual": []
       },
-      "notes": "The acceptance scenario simulates a provider auth wall and asserts the floating auth helper. The background normal-tab opening path is covered by tests/service-worker.test.js."
+      "notes": "The provider-boundary acceptance scenario uses fake provider auth-wall mode and asserts the floating auth helper. The background normal-tab opening path is covered by tests/service-worker.test.js."
     },
     {
       "id": "IB-INV-011",

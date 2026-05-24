@@ -6,12 +6,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const matrixPath = path.join(repoRoot, 'docs/verification-matrix.json');
 const acceptanceSpecPath = path.join(repoRoot, 'tests/acceptance/spec.json');
 const validStatuses = new Set(['covered', 'gap', 'exploratory']);
+const validScenarioTiers = new Set(['extension-contract', 'provider-boundary', 'browser-env']);
 const proofBuckets = ['deterministic', 'real_live', 'manual'];
+const failures = [];
 
 const matrix = readJson(matrixPath, 'verification matrix');
 const acceptanceScenarioIds = readAcceptanceScenarioIds();
-
-const failures = [];
 
 if (!matrix || typeof matrix !== 'object' || Array.isArray(matrix)) {
   failures.push('matrix must be a JSON object');
@@ -119,7 +119,29 @@ function readAcceptanceScenarioIds() {
     return new Set();
   }
 
-  return new Set(specs.map((scenario) => scenario && scenario.id).filter(Boolean));
+  const ids = new Set();
+  for (const [index, scenario] of specs.entries()) {
+    const label = `tests/acceptance/spec.json[${index}]`;
+    if (!scenario || typeof scenario !== 'object' || Array.isArray(scenario)) {
+      failures.push(`${label} must be an object`);
+      continue;
+    }
+
+    requireString(scenario.id, `${label}.id`);
+    requireString(scenario.tier, `${label}.tier`);
+    requireString(scenario.journey, `${label}.journey`);
+    requireString(scenario.mockContract, `${label}.mockContract`);
+    requireString(scenario.realBoundary, `${label}.realBoundary`);
+
+    if (scenario.tier && !validScenarioTiers.has(scenario.tier)) {
+      failures.push(`${label}.tier must be one of: ${[...validScenarioTiers].join(', ')}`);
+    }
+    if (scenario.id) {
+      ids.add(scenario.id);
+    }
+  }
+
+  return ids;
 }
 
 function requireString(value, field) {

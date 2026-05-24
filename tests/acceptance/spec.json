@@ -2,6 +2,10 @@
   {
     "id": "selection-floating-dock-provider",
     "intent": "Selected text opens a floating chat, keeps provider controls stable, and preserves provider when docked",
+    "tier": "extension-contract",
+    "journey": "User sends selected text to floating chat, switches provider, then docks without losing provider state.",
+    "mockContract": "Fake provider exposes an editor, provider tabs, and navigation state so extension chrome can be verified deterministically.",
+    "realBoundary": "Real provider DOM can change, but this scenario owns extension surface controls, provider selection, and persistence.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "floating",
@@ -45,6 +49,10 @@
   {
     "id": "selection-ask-autosubmit",
     "intent": "Ask action opens question panel and sends question to floating provider with auto-submit enabled",
+    "tier": "extension-contract",
+    "journey": "User asks a question about selected text, auto-submits it to floating chat, docks, then continues in the sidebar.",
+    "mockContract": "Fake provider records injected prompt text, auto-submit metadata, submit count, and submitted conversation URL.",
+    "realBoundary": "Real provider editor and submit behavior is checked by real-provider smoke; this scenario checks extension prompt construction and routing.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "floating",
@@ -93,6 +101,10 @@
   {
     "id": "selection-sidepanel-closes-floating",
     "intent": "Opening the docked side panel while a floating provider is visible hides the floating surface",
+    "tier": "extension-contract",
+    "journey": "User opens floating mode, changes the toolbar to sidebar mode, and sends another selection through the side panel.",
+    "mockContract": "Fake provider keeps provider frames deterministic while the extension proves dock and float do not stay visible together.",
+    "realBoundary": "Real provider content is irrelevant here; the risk is extension window lifecycle and side panel routing.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "floating",
@@ -117,6 +129,10 @@
   {
     "id": "selection-sidepanel-direct-send",
     "intent": "Selected text sends directly to the sidebar when sidePanel open mode is configured",
+    "tier": "extension-contract",
+    "journey": "User configured sidePanel mode and sends selected text directly into the docked provider.",
+    "mockContract": "Fake provider records sidebar prompt injection without opening floating UI.",
+    "realBoundary": "Real provider editor readiness is covered by real-provider smoke; this scenario checks extension sidePanel routing.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "sidePanel",
@@ -145,6 +161,10 @@
   {
     "id": "selection-sidepanel-direct-ask",
     "intent": "Ask sends directly to the sidebar with auto-submit when sidePanel open mode is configured",
+    "tier": "extension-contract",
+    "journey": "User configured sidePanel mode, asks a question about selected text, and sends it straight to the sidebar.",
+    "mockContract": "Fake provider records sidebar prompt text plus auto-submit state for the Ask flow.",
+    "realBoundary": "Real provider submit affordances are covered by real-provider smoke; this scenario checks extension question capture and routing.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "sidePanel",
@@ -175,6 +195,10 @@
   {
     "id": "selection-action-explain-prompt",
     "intent": "Explain action wraps selected text with the explain prompt template",
+    "tier": "extension-contract",
+    "journey": "User selects text and chooses Explain from the toolbar.",
+    "mockContract": "Fake provider exposes the prompt text received from the extension for template verification.",
+    "realBoundary": "Real provider injection is not the concern here; the risk is that the extension sends the wrong instruction template.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "floating",
@@ -202,6 +226,10 @@
   {
     "id": "selection-action-translate-prompt",
     "intent": "Translate action wraps selected text with the translate prompt template",
+    "tier": "extension-contract",
+    "journey": "User selects text and chooses Translate from the toolbar.",
+    "mockContract": "Fake provider exposes the prompt text received from the extension for template verification.",
+    "realBoundary": "Real provider injection is not the concern here; the risk is that the extension sends the wrong instruction template.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "floating",
@@ -229,6 +257,10 @@
   {
     "id": "selection-action-summary-prompt",
     "intent": "Summary action wraps selected text with the summary prompt template",
+    "tier": "extension-contract",
+    "journey": "User selects text and chooses Summary from the toolbar.",
+    "mockContract": "Fake provider exposes the prompt text received from the extension for template verification.",
+    "realBoundary": "Real provider injection is not the concern here; the risk is that the extension sends the wrong instruction template.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "floating",
@@ -256,6 +288,10 @@
   {
     "id": "selection-floating-switched-provider-prompt",
     "intent": "After switching floating provider, the next selection prompt is injected into the selected provider",
+    "tier": "extension-contract",
+    "journey": "User opens floating mode, switches to Claude, then sends a second selection to the active provider.",
+    "mockContract": "Fake provider exposes per-provider prompt state so stale-provider routing can be detected.",
+    "realBoundary": "Real provider editor selectors are checked by real-provider smoke; this scenario checks extension active-provider state.",
     "runner": "cft",
     "settings": {
       "selectionToolbarOpenMode": "floating",
@@ -289,7 +325,14 @@
   {
     "id": "selection-floating-auth-tab-fallback",
     "intent": "When a floating provider needs sign-in, the user gets a normal-tab fallback for auth flows that cannot run inside an iframe",
+    "tier": "provider-boundary",
+    "journey": "User opens floating ChatGPT while the provider page shows a sign-in wall and needs a normal-tab fallback.",
+    "mockContract": "Fake provider runs in auth-wall mode with no editor and visible login text detected by the provider content script.",
+    "realBoundary": "ChatGPT and Google OAuth can block iframe login flows, so extension UI must offer a normal-tab fallback instead of assuming injection.",
     "runner": "cft",
+    "providerModes": {
+      "chatgpt": "auth-wall"
+    },
     "settings": {
       "selectionToolbarOpenMode": "floating",
       "lastSelectedProvider": "chatgpt",
@@ -302,11 +345,10 @@
       { "assert": "selectionToolbarVisible", "openMode": "floating" },
       { "action": "clickToolbarAction", "name": "Send" },
       { "assert": "floatingVisible" },
-      { "action": "simulateFloatingAuthWall", "provider": "chatgpt", "message": "Sign in to continue with ChatGPT." },
       {
         "assert": "floatingAuthHelper",
         "provider": "chatgpt",
-        "textIncludes": "Sign in to continue with ChatGPT.",
+        "textIncludes": "ChatGPT needs sign-in",
         "buttonText": "Open ChatGPT in tab"
       },
       { "action": "closeFloating" },

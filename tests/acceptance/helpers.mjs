@@ -17,11 +17,15 @@ export class AcceptanceHarness {
     this.chromeBin = options.chromeBin || process.env.CHROME_BIN || defaultChromeBin;
     const configuredPort = options.port ?? process.env.CFT_PORT;
     this.port = configuredPort == null ? 0 : Number(configuredPort);
-    this.unpackedDir = options.unpackedDir || process.env.EXT_DIR || path.join(repoRoot, 'dist/insidebar-ai-chrome-unpacked');
+    this.unpackedDir = options.unpackedDir || process.env.EXT_DIR || path.join(
+      os.tmpdir(),
+      `insidebar-ai-chrome-unpacked-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    );
     this.profileDir = options.profileDir || process.env.CFT_PROFILE || path.join(os.tmpdir(), `insidebar-acceptance-${Date.now()}`);
     this.artifactDir = options.artifactDir || path.join(repoRoot, 'dist/acceptance-artifacts');
     this.fixtureDir = options.fixtureDir || path.join(repoRoot, 'tests/acceptance/fixtures');
     this.useFakeProviders = options.useFakeProviders !== false;
+    this.providerModes = options.providerModes || {};
     this.preserveProfile = options.preserveProfile === true || process.env.ACCEPTANCE_PRESERVE_PROFILE === '1';
     this.chromeArgs = Array.isArray(options.chromeArgs) ? options.chromeArgs : readBrowserArgs();
     this.chromeProcess = null;
@@ -62,6 +66,11 @@ export class AcceptanceHarness {
       '--enable-unsafe-extension-debugging',
       '--no-first-run',
       '--no-default-browser-check',
+      '--disable-sync',
+      '--disable-background-networking',
+      '--disable-features=EdgeSignIn,msEdgeSync,msImplicitSignin,msEdgeEnableNurturingFramework',
+      '--disable-component-extensions-with-background-pages',
+      '--disable-default-apps',
       '--no-sandbox',
       '--disable-gpu',
       '--window-size=1365,960',
@@ -107,22 +116,52 @@ export class AcceptanceHarness {
     if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings: reset side panel');
     await this.evaluate(this.serviceWorker, `globalThis.__insidebarResetSidePanelStateForTests?.()`);
     if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings: sync set');
-    await this.evaluate(this.serviceWorker, storageCall('sync', 'set', settings));
+    await this.writeStorageValues('sync', settings);
     if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings done');
   }
 
-  async closeBrowserStartupNoise() {
-    const targets = await this.getTargets();
-    const noisyTargets = targets.filter((target) =>
-      target.type === 'page' &&
-      /^(edge|chrome):\/\/sync-confirmation-dialog\//.test(target.url || '')
-    );
+  async writeStorageValues(area, expectedValues) {
+    const entries = Object.entries(expectedValues || {});
+    if (entries.length === 0) {
+      return;
+    }
 
-    for (const target of noisyTargets) {
-      await Promise.race([
-        this.closePageTarget(target),
-        delay(1200)
-      ]);
+    const defaults = Object.fromEntries(entries.map(([key]) => [key, null]));
+    const deadline = Date.now() + 12000;
+    let lastValue = null;
+
+    while (Date.now() < deadline) {
+      await this.evaluate(this.serviceWorker, storageCall(area, 'set', expectedValues));
+      lastValue = await this.evaluate(this.serviceWorker, storageGetCall(area, defaults));
+      if (entries.every(([key, expected]) => JSON.stringify(lastValue?.[key]) === JSON.stringify(expected))) {
+        return;
+      }
+      await delay(350);
+    }
+
+    throw new Error(`Timed out waiting for chrome.storage.${area} settings readback: ${JSON.stringify(lastValue)}`);
+  }
+
+  async closeBrowserStartupNoise() {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const targets = await this.getTargets();
+      const noisyTargets = targets.filter((target) =>
+        target.type === 'page' &&
+        /^(edge|chrome):\/\/sync-confirmation-dialog\//.test(target.url || '')
+      );
+
+      if (noisyTargets.length === 0) {
+        return;
+      }
+
+      for (const target of noisyTargets) {
+        await Promise.race([
+          this.closePageTarget(target),
+          delay(1200)
+        ]);
+        await this.closeTarget(target.id);
+      }
+      await delay(300);
     }
   }
 
@@ -276,21 +315,6 @@ export class AcceptanceHarness {
         });
       }
     })()`);
-  }
-
-  async simulateFloatingAuthWall(provider, message) {
-    const floatingTarget = await this.resolveFloatingTarget();
-    const providerFrame = await this.resolveProviderFrameTarget(provider, floatingTarget);
-    await this.evaluate(providerFrame, `(() => {
-      window.parent.postMessage({
-        type: 'INSIDEBAR_PROVIDER_AUTH_STATE',
-        provider: '${escapeJs(provider)}',
-        authRequired: true,
-        message: ${JSON.stringify(message)},
-        url: window.location.href
-      }, '*');
-    })()`);
-    await delay(250);
   }
 
   async closeFloating() {
@@ -630,7 +654,8 @@ export class AcceptanceHarness {
   }
 
   fakeProviderUrl(providerId) {
-    return `${this.providerOrigin}/fake-provider.html?provider=${encodeURIComponent(providerId)}`;
+    const mode = this.providerModes[providerId] || 'editor-ready';
+    return `${this.providerOrigin}/fake-provider.html?provider=${encodeURIComponent(providerId)}&mode=${encodeURIComponent(mode)}`;
   }
 
   async startFixtureServer() {
@@ -810,7 +835,11 @@ export class AcceptanceHarness {
     if (!targetId) {
       return;
     }
-    await fetch(`http://127.0.0.1:${this.port}/json/activate/${targetId}`);
+    try {
+      await fetch(`http://127.0.0.1:${this.port}/json/activate/${targetId}`);
+    } catch {
+      // Best effort only; iframe targets may not be directly activatable.
+    }
   }
 
   async navigate(target, url) {
@@ -850,6 +879,8 @@ export class AcceptanceHarness {
   }
 
   async clickByTestId(target, testId) {
+    await this.activateTarget(target.id);
+    await delay(100);
     const point = await this.evaluate(target, `(() => {
       const element = document.querySelector('[data-testid="${escapeForSelector(testId)}"]');
       if (!element) return null;
@@ -1007,6 +1038,21 @@ function storageCall(area, method, value = null) {
         return;
       }
       resolve(true);
+    });
+  })`;
+}
+
+function storageGetCall(area, defaults) {
+  return `new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('chrome.storage.${area}.get timed out')), 3000);
+    chrome.storage.${area}.get(${JSON.stringify(defaults)}, (value) => {
+      clearTimeout(timeout);
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve(value);
     });
   })`;
 }

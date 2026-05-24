@@ -11,7 +11,6 @@ const actions = new Set([
   'selectText',
   'clickToolbarAction',
   'switchFloatingProvider',
-  'simulateFloatingAuthWall',
   'submitAskQuestion',
   'closeFloating',
   'setSelectionToolbarOpenMode',
@@ -23,7 +22,6 @@ const actionFields = {
   selectText: ['action', 'target'],
   clickToolbarAction: ['action', 'name', 'waitForFloating'],
   switchFloatingProvider: ['action', 'provider'],
-  simulateFloatingAuthWall: ['action', 'provider', 'message'],
   submitAskQuestion: ['action', 'question', 'waitForFloating'],
   closeFloating: ['action'],
   setSelectionToolbarOpenMode: ['action', 'mode'],
@@ -74,6 +72,8 @@ const assertionFields = {
 
 const providers = new Set(['chatgpt', 'claude', 'gemini', 'google', 'grok', 'deepseek']);
 const runners = new Set(['cft']);
+const tiers = new Set(['extension-contract', 'provider-boundary', 'browser-env']);
+const providerModes = new Set(['editor-ready', 'editor-delayed', 'editor-missing', 'auth-wall']);
 
 function fail(message) {
   console.error(`acceptance spec failed: ${message}`);
@@ -87,9 +87,17 @@ if (!Array.isArray(specs) || specs.length === 0) {
 const ids = new Set();
 
 for (const scenario of specs) {
-  requireOnlyFields(scenario, ['id', 'intent', 'runner', 'settings', 'steps'], 'scenario');
+  requireOnlyFields(
+    scenario,
+    ['id', 'intent', 'tier', 'journey', 'mockContract', 'realBoundary', 'runner', 'providerModes', 'settings', 'steps'],
+    'scenario'
+  );
   requireString(scenario.id, 'scenario.id');
   requireString(scenario.intent, `${scenario.id}.intent`);
+  requireString(scenario.tier, `${scenario.id}.tier`);
+  requireString(scenario.journey, `${scenario.id}.journey`);
+  requireString(scenario.mockContract, `${scenario.id}.mockContract`);
+  requireString(scenario.realBoundary, `${scenario.id}.realBoundary`);
 
   if (ids.has(scenario.id)) {
     fail(`duplicate scenario id: ${scenario.id}`);
@@ -100,10 +108,15 @@ for (const scenario of specs) {
     fail(`${scenario.id}: unsupported runner "${scenario.runner}"`);
   }
 
+  if (!tiers.has(scenario.tier)) {
+    fail(`${scenario.id}: unsupported tier "${scenario.tier}"`);
+  }
+
   if (!Array.isArray(scenario.steps) || scenario.steps.length === 0) {
     fail(`${scenario.id}: steps must be a non-empty array`);
   }
 
+  validateProviderModes(scenario.id, scenario.providerModes);
   validateSettings(scenario.id, scenario.settings || {});
 
   for (const [index, step] of scenario.steps.entries()) {
@@ -172,12 +185,8 @@ function validateAction(context, step) {
     }
   }
 
-  if (['switchFloatingProvider', 'simulateFloatingAuthWall'].includes(step.action)) {
+  if (step.action === 'switchFloatingProvider') {
     requireProvider(step.provider, `${context}.provider`);
-  }
-
-  if (step.action === 'simulateFloatingAuthWall' && step.message != null && typeof step.message !== 'string') {
-    fail(`${context}.message must be string when provided`);
   }
 
   if (step.action === 'setSelectionToolbarOpenMode' && !['floating', 'sidePanel'].includes(step.mode)) {
@@ -188,6 +197,25 @@ function validateAction(context, step) {
     requireString(step.question, `${context}.question`);
     if (step.waitForFloating != null && typeof step.waitForFloating !== 'boolean') {
       fail(`${context}.waitForFloating must be boolean when provided`);
+    }
+  }
+}
+
+function validateProviderModes(context, modes) {
+  if (modes == null) {
+    return;
+  }
+
+  if (typeof modes !== 'object' || Array.isArray(modes)) {
+    fail(`${context}: providerModes must be an object`);
+  }
+
+  for (const [provider, mode] of Object.entries(modes)) {
+    if (!providers.has(provider)) {
+      fail(`${context}: providerModes contains invalid provider "${provider}"`);
+    }
+    if (!providerModes.has(mode)) {
+      fail(`${context}: providerModes.${provider} must be one of ${[...providerModes].join(', ')}`);
     }
   }
 }

@@ -17,7 +17,9 @@ let harness = null;
 
 try {
   for (const scenario of selectedSpecs) {
-    harness = new AcceptanceHarness();
+    harness = new AcceptanceHarness({
+      providerModes: scenario.providerModes || {}
+    });
     await harness.start();
     await runScenario(scenario);
     await harness.stop();
@@ -81,12 +83,6 @@ async function runAction(step) {
       break;
     case 'switchFloatingProvider':
       await harness.switchFloatingProvider(required(step.provider, 'switchFloatingProvider.provider'));
-      break;
-    case 'simulateFloatingAuthWall':
-      await harness.simulateFloatingAuthWall(
-        required(step.provider, 'simulateFloatingAuthWall.provider'),
-        step.message || 'Sign in to continue with this provider.'
-      );
       break;
     case 'submitAskQuestion':
       await harness.submitAskQuestion(required(step.question, 'submitAskQuestion.question'), {
@@ -321,16 +317,25 @@ async function runAssertion(step) {
 }
 
 function validateScenario(scenario) {
-  assertAllowedKeys(scenario, ['id', 'intent', 'runner', 'settings', 'steps'], `Scenario ${scenario.id || '<unknown>'}`);
+  assertAllowedKeys(
+    scenario,
+    ['id', 'intent', 'tier', 'journey', 'mockContract', 'realBoundary', 'runner', 'providerModes', 'settings', 'steps'],
+    `Scenario ${scenario.id || '<unknown>'}`
+  );
 
-  for (const field of ['id', 'intent', 'runner', 'steps']) {
+  for (const field of ['id', 'intent', 'tier', 'journey', 'mockContract', 'realBoundary', 'runner', 'steps']) {
     if (!scenario[field]) {
       throw new Error(`Scenario missing ${field}: ${JSON.stringify(scenario)}`);
     }
   }
+  const validTiers = new Set(['extension-contract', 'provider-boundary', 'browser-env']);
+  if (!validTiers.has(scenario.tier)) {
+    throw new Error(`Scenario ${scenario.id} has invalid tier "${scenario.tier}"`);
+  }
   if (!Array.isArray(scenario.steps) || scenario.steps.length === 0) {
     throw new Error(`Scenario ${scenario.id} must include non-empty steps`);
   }
+  validateProviderModes(scenario);
 }
 
 function assertStepShape(step, baseKeys, label) {
@@ -339,7 +344,6 @@ function assertStepShape(step, baseKeys, label) {
     selectText: ['action', 'target'],
     clickToolbarAction: ['action', 'name', 'waitForFloating'],
     switchFloatingProvider: ['action', 'provider'],
-    simulateFloatingAuthWall: ['action', 'provider', 'message'],
     submitAskQuestion: ['action', 'question', 'waitForFloating'],
     closeFloating: ['action'],
     setSelectionToolbarOpenMode: ['action', 'mode'],
@@ -392,6 +396,27 @@ function assertAllowedKeys(value, allowedKeys, label) {
   const allowed = new Set(allowedKeys);
   const unknownKeys = Object.keys(value).filter((key) => !allowed.has(key));
   assert(unknownKeys.length === 0, `${label} includes unknown field(s): ${unknownKeys.join(', ')}`);
+}
+
+function validateProviderModes(scenario) {
+  if (scenario.providerModes == null) {
+    return;
+  }
+
+  if (typeof scenario.providerModes !== 'object' || Array.isArray(scenario.providerModes)) {
+    throw new Error(`Scenario ${scenario.id} providerModes must be an object`);
+  }
+
+  const validProviders = new Set(['chatgpt', 'claude', 'gemini', 'google', 'grok', 'deepseek']);
+  const validModes = new Set(['editor-ready', 'editor-delayed', 'editor-missing', 'auth-wall']);
+  for (const [provider, mode] of Object.entries(scenario.providerModes)) {
+    if (!validProviders.has(provider)) {
+      throw new Error(`Scenario ${scenario.id} providerModes includes unknown provider "${provider}"`);
+    }
+    if (!validModes.has(mode)) {
+      throw new Error(`Scenario ${scenario.id} providerModes.${provider} has invalid mode "${mode}"`);
+    }
+  }
 }
 
 function assertSameArray(actual, expected, label) {
