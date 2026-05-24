@@ -19,7 +19,7 @@ describe('service-worker', () => {
         onInstalled: { addListener: vi.fn() },
         onStartup: { addListener: vi.fn() },
         onMessage: { addListener: vi.fn() },
-        getManifest: vi.fn(() => ({ version: '1.7.2' }))
+        getManifest: vi.fn(() => ({ version: '1.8.0' }))
       },
       storage: {
         sync: {

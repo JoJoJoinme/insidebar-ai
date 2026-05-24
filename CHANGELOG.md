@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-24
+
+### Changed
+- Promoted the selection-toolbar and provider-auth fallback release line to version 1.8.0.
+- Aligned extension manifest, package metadata, README badge, tests, and build version metadata.
+
 ## [1.7.2] - 2026-05-24
 
 ### Added
@@ -169,6 +175,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.8.0]: https://github.com/JoJoJoinme/insidebar-ai/releases/tag/v1.8.0
 [1.7.2]: https://github.com/JoJoJoinme/insidebar-ai/releases/tag/v1.7.2
 [1.7.0]: https://github.com/xiaolai/insidebar-ai/releases/tag/v1.7.0
 [1.6.0]: https://github.com/xiaolai/insidebar-ai/releases/tag/v1.6.0

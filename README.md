@@ -2,7 +2,7 @@
 
 > Your AI command center: ChatGPT, Claude, Gemini, Google AI, Grok, and DeepSeek—all in one sidebar
 
-![Version](https://img.shields.io/badge/version-1.7.2-blue.svg)
+![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Languages](https://img.shields.io/badge/languages-10-brightgreen.svg)
 
