@@ -164,6 +164,75 @@ body {
   display: block;
 }
 
+#provider-auth-helper {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(245, 245, 245, 0.94);
+}
+
+#provider-auth-helper[hidden] {
+  display: none;
+}
+
+.provider-auth-content {
+  display: grid;
+  gap: 12px;
+  width: min(420px, 100%);
+  padding: 20px;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #243044;
+  box-shadow: 0 12px 32px rgba(20, 30, 50, 0.16);
+}
+
+.provider-auth-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.provider-auth-message {
+  color: #536071;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.provider-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.provider-auth-actions button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #c9d2df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #243044;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.provider-auth-actions button:first-child {
+  border-color: #1a73e8;
+  background: #1a73e8;
+  color: #ffffff;
+}
+
+.provider-auth-actions button:hover,
+.provider-auth-actions button:focus-visible {
+  filter: brightness(0.96);
+  outline: none;
+}
+
 #loading, #error {
   display: flex;
   align-items: center;
@@ -249,6 +318,33 @@ body {
 
 [data-theme="dark"] #provider-container {
   background: #2d2d2d;
+}
+
+[data-theme="dark"] #provider-auth-helper {
+  background: rgba(45, 45, 45, 0.94);
+}
+
+[data-theme="dark"] .provider-auth-content {
+  border-color: #444;
+  background: #1e1e1e;
+  color: #e0e0e0;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+}
+
+[data-theme="dark"] .provider-auth-message {
+  color: #aaa;
+}
+
+[data-theme="dark"] .provider-auth-actions button {
+  border-color: #555;
+  background: #2d2d2d;
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .provider-auth-actions button:first-child {
+  border-color: #4285f4;
+  background: #1a73e8;
+  color: #ffffff;
 }
 
 [data-theme="dark"] #sidebar-topbar {

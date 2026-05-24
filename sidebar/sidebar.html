@@ -47,6 +47,18 @@
     <div id="provider-container" data-testid="sidebar-provider-container">
       <div id="loading" style="display: none;">Loading AI provider...</div>
       <div id="error" style="display: none;"></div>
+      <div id="provider-auth-helper" data-testid="sidebar-auth-helper" hidden>
+        <div class="provider-auth-content">
+          <div id="provider-auth-title" class="provider-auth-title">Sign in required</div>
+          <div id="provider-auth-message" class="provider-auth-message">
+            Provider sign-in may be blocked inside the docked frame. Open it in a normal tab, sign in, then reload this view.
+          </div>
+          <div class="provider-auth-actions">
+            <button id="open-provider-tab" type="button" data-testid="sidebar-open-provider-tab">Open provider in tab</button>
+            <button id="reload-provider-frame" type="button" data-testid="sidebar-reload-provider-frame">Reload</button>
+          </div>
+        </div>
+      </div>
       <!-- Iframes will be dynamically inserted here -->
     </div>
 

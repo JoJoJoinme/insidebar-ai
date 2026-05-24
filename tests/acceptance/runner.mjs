@@ -201,6 +201,21 @@ async function runAssertion(step) {
       }
       break;
     }
+    case 'sidebarAuthHelper': {
+      const state = await harness.readSidebarAuthHelper();
+      assert(state.visible, `sidebar auth helper should be visible: ${JSON.stringify(state)}`);
+      assert(state.providerId === step.provider,
+        `expected sidebar auth helper provider ${step.provider}, got ${state.providerId}`);
+      if (step.textIncludes) {
+        assert(state.text.includes(step.textIncludes),
+          `expected sidebar auth helper text to include "${step.textIncludes}", got "${state.text}"`);
+      }
+      if (step.buttonText) {
+        assert(state.buttonText === step.buttonText,
+          `expected sidebar auth helper button "${step.buttonText}", got "${state.buttonText}"`);
+      }
+      break;
+    }
     case 'floatingReferenceQuestion': {
       const state = await harness.readFloatingReference();
       assert(state.question.includes(step.includes), `expected floating question to include "${step.includes}", got "${state.question}"`);
@@ -360,6 +375,7 @@ function assertStepShape(step, baseKeys, label) {
     embeddedChatgptHeaderHidden: ['assert'],
     floatingProvider: ['assert', 'provider'],
     floatingAuthHelper: ['assert', 'provider', 'textIncludes', 'buttonText'],
+    sidebarAuthHelper: ['assert', 'provider', 'textIncludes', 'buttonText'],
     floatingReferenceQuestion: ['assert', 'includes'],
     floatingAutoSubmit: ['assert', 'value', 'minPromptLength'],
     providerReceivedPrompt: ['assert', 'provider', 'includes', 'excludes', 'autoSubmit', 'submitted', 'minPromptLength'],

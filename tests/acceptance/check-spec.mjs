@@ -39,6 +39,7 @@ const assertions = new Set([
   'embeddedChatgptHeaderHidden',
   'floatingProvider',
   'floatingAuthHelper',
+  'sidebarAuthHelper',
   'floatingReferenceQuestion',
   'floatingAutoSubmit',
   'providerReceivedPrompt',
@@ -60,6 +61,7 @@ const assertionFields = {
   embeddedChatgptHeaderHidden: ['assert'],
   floatingProvider: ['assert', 'provider'],
   floatingAuthHelper: ['assert', 'provider', 'textIncludes', 'buttonText'],
+  sidebarAuthHelper: ['assert', 'provider', 'textIncludes', 'buttonText'],
   floatingReferenceQuestion: ['assert', 'includes'],
   floatingAutoSubmit: ['assert', 'value', 'minPromptLength'],
   providerReceivedPrompt: ['assert', 'provider', 'includes', 'excludes', 'autoSubmit', 'submitted', 'minPromptLength'],
@@ -242,11 +244,11 @@ function validateAssertion(context, step) {
     fail(`${context}.openMode must be floating or sidePanel when provided`);
   }
 
-  if (['embeddedProviderHeaderHidden', 'floatingProvider', 'floatingAuthHelper', 'providerReceivedPrompt', 'sidebarProviderReceivedPrompt', 'storageProvider', 'sidebarProvider'].includes(step.assert)) {
+  if (['embeddedProviderHeaderHidden', 'floatingProvider', 'floatingAuthHelper', 'sidebarAuthHelper', 'providerReceivedPrompt', 'sidebarProviderReceivedPrompt', 'storageProvider', 'sidebarProvider'].includes(step.assert)) {
     requireProvider(step.provider, `${context}.provider`);
   }
 
-  if (step.assert === 'floatingAuthHelper') {
+  if (step.assert === 'floatingAuthHelper' || step.assert === 'sidebarAuthHelper') {
     if (step.textIncludes != null && typeof step.textIncludes !== 'string') {
       fail(`${context}.textIncludes must be string when provided`);
     }

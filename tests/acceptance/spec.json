@@ -193,6 +193,38 @@
     ]
   },
   {
+    "id": "selection-sidepanel-auth-tab-fallback",
+    "intent": "When a docked provider needs sign-in, the user gets a normal-tab fallback for auth flows that cannot run inside an iframe",
+    "tier": "provider-boundary",
+    "journey": "User sends selected text to docked ChatGPT while the provider page shows a sign-in wall and needs a normal-tab fallback.",
+    "mockContract": "Fake provider runs in auth-wall mode in the docked side panel with no editor and visible login text detected by the provider content script.",
+    "realBoundary": "ChatGPT and Google OAuth can block iframe login flows in the docked side panel too, so the docked provider view must offer the same normal-tab fallback as floating.",
+    "runner": "cft",
+    "providerModes": {
+      "chatgpt": "auth-wall"
+    },
+    "settings": {
+      "selectionToolbarOpenMode": "sidePanel",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible", "openMode": "sidePanel" },
+      { "action": "clickToolbarAction", "name": "Send", "waitForFloating": false },
+      { "assert": "sidebarProvider", "provider": "chatgpt" },
+      {
+        "assert": "sidebarAuthHelper",
+        "provider": "chatgpt",
+        "textIncludes": "ChatGPT needs sign-in",
+        "buttonText": "Open ChatGPT in tab"
+      },
+      { "assert": "floatingHidden" }
+    ]
+  },
+  {
     "id": "selection-action-explain-prompt",
     "intent": "Explain action wraps selected text with the explain prompt template",
     "tier": "extension-contract",

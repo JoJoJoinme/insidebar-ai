@@ -42,6 +42,11 @@ let isSwitchingProvider = false;
 let pendingProviderSwitch = null;
 const handledProviderPromptIds = new Set();
 const EDGE_SHORTCUT_STORAGE_KEY = 'edgeShortcutReminderDismissed';
+const providerAuthHelper = document.getElementById('provider-auth-helper');
+const providerAuthTitle = document.getElementById('provider-auth-title');
+const providerAuthMessage = document.getElementById('provider-auth-message');
+const openProviderTabButton = document.getElementById('open-provider-tab');
+const reloadProviderFrameButton = document.getElementById('reload-provider-frame');
 
 // Chat History state
 let isShowingHistoryFavorites = false;
@@ -67,6 +72,7 @@ async function init() {
   await renderProviderTabs();
   await loadDefaultProvider();
   setupMessageListener();
+  setupProviderAuthFallback();
   setupPromptLibrary();  // T045: Initialize prompt library
   setupChatHistory();     // Initialize chat history
 
@@ -236,6 +242,7 @@ async function switchProvider(providerId, options = {}) {
 
   const providerUrl = getProviderFrameUrl(provider, options.providerUrl);
   const shouldNavigateLoadedProvider = typeof options.providerUrl === 'string';
+  hideProviderAuthHelper();
 
   // Load or show provider iframe
   if (!loadedIframes.has(providerId)) {
@@ -246,6 +253,8 @@ async function switchProvider(providerId, options = {}) {
     iframe.style.display = 'block';
     if (shouldNavigateLoadedProvider && providerUrl && iframe.src !== providerUrl) {
       loadedIframesState.set(providerId, 'loading');
+      iframe.dataset.providerUrl = providerUrl;
+      hideProviderAuthHelper();
       iframe.src = providerUrl;
     }
   }
@@ -296,6 +305,11 @@ function createProviderIframe(provider, url = provider.url) {
   const iframe = document.createElement('iframe');
 
   iframe.src = url;
+  iframe.title = provider.name;
+  iframe.dataset.testid = 'sidebar-provider-frame';
+  iframe.dataset.providerId = provider.id;
+  iframe.dataset.providerHomeUrl = provider.url;
+  iframe.dataset.providerUrl = url;
   // Sandbox must allow same-origin + scripts so provider UIs can function; popups are
   // permitted to support OAuth flows within embedded sites. See README "Permissions"
   // for the full security rationale.
@@ -338,6 +352,128 @@ function getProviderFrameUrl(provider, requestedUrl) {
   }
 
   return provider.url;
+}
+
+function setupProviderAuthFallback() {
+  openProviderTabButton?.addEventListener('click', () => {
+    openCurrentProviderInTab().catch((error) => {
+      console.warn('[insidebar.ai] Failed to open provider tab:', error);
+      showError(error.message || 'Unable to open the provider in a browser tab.');
+    });
+  });
+
+  reloadProviderFrameButton?.addEventListener('click', () => {
+    reloadCurrentProviderFrame();
+  });
+
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || data.type !== 'INSIDEBAR_PROVIDER_AUTH_STATE') {
+      return;
+    }
+
+    handleProviderAuthState(event, data);
+  });
+}
+
+function handleProviderAuthState(event, data) {
+  const providerId = data.provider || currentProvider;
+  if (!providerId || providerId !== currentProvider) {
+    return;
+  }
+
+  const iframe = loadedIframes.get(providerId);
+  if (!iframe?.contentWindow || event.source !== iframe.contentWindow) {
+    return;
+  }
+
+  if (data.authRequired === false) {
+    hideProviderAuthHelper();
+    return;
+  }
+
+  if (data.authRequired !== true) {
+    return;
+  }
+
+  if (typeof data.url === 'string' && data.url.startsWith('http')) {
+    iframe.dataset.providerUrl = data.url;
+  }
+
+  showProviderAuthHelper(providerId, data.message);
+}
+
+function showProviderAuthHelper(providerId, message) {
+  if (!providerAuthHelper) {
+    return;
+  }
+
+  const provider = getProviderById(providerId);
+  const providerName = provider?.name || providerId || 'the provider';
+  providerAuthHelper.hidden = false;
+  providerAuthHelper.dataset.providerId = providerId || '';
+  if (providerAuthTitle) {
+    providerAuthTitle.textContent = `${providerName} needs sign-in`;
+  }
+  if (providerAuthMessage) {
+    providerAuthMessage.textContent = message || 'Google and provider sign-in flows may be blocked inside the docked frame. Open it in a normal tab, sign in, then reload this view.';
+  }
+  if (openProviderTabButton) {
+    openProviderTabButton.textContent = `Open ${providerName} in tab`;
+  }
+}
+
+function hideProviderAuthHelper() {
+  if (!providerAuthHelper) {
+    return;
+  }
+
+  providerAuthHelper.hidden = true;
+  providerAuthHelper.dataset.providerId = '';
+}
+
+async function openCurrentProviderInTab() {
+  if (!currentProvider) {
+    throw new Error('Provider is not available.');
+  }
+
+  const iframe = loadedIframes.get(currentProvider);
+  const provider = getProviderById(currentProvider);
+  const url = iframe?.dataset.providerUrl || iframe?.src || provider?.url;
+  if (!url) {
+    throw new Error('Provider URL is not available.');
+  }
+
+  const response = await chrome.runtime.sendMessage({
+    action: 'openProviderTab',
+    payload: {
+      providerId: currentProvider,
+      url
+    }
+  });
+
+  if (response?.success === false) {
+    throw new Error(response.error || 'Unable to open the provider tab.');
+  }
+}
+
+function reloadCurrentProviderFrame() {
+  if (!currentProvider) {
+    return;
+  }
+
+  const iframe = loadedIframes.get(currentProvider);
+  if (!iframe) {
+    return;
+  }
+
+  const provider = getProviderById(currentProvider);
+  const homeUrl = iframe.dataset.providerHomeUrl || provider?.url || iframe.src;
+  hideProviderAuthHelper();
+  showLoading(`Reloading ${provider?.name || 'provider'}...`);
+  loadedIframesState.set(currentProvider, 'loading');
+  iframe.dataset.providerUrl = homeUrl;
+  iframe.src = homeUrl;
 }
 
 // T017: Load default or last selected provider

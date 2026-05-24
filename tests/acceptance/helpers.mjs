@@ -439,6 +439,20 @@ export class AcceptanceHarness {
     })()`, (value) => value?.visible, 10000, 'floating auth helper');
   }
 
+  async readSidebarAuthHelper() {
+    this.sidebar ||= await this.resolveSidebarTarget();
+    return this.waitForEvaluation(this.sidebar, `(() => {
+      const helper = document.querySelector('[data-testid="sidebar-auth-helper"]');
+      const button = document.querySelector('[data-testid="sidebar-open-provider-tab"]');
+      return {
+        visible: !!helper && !helper.hidden,
+        providerId: helper?.dataset.providerId || null,
+        text: helper?.textContent.trim() || '',
+        buttonText: button?.textContent.trim() || ''
+      };
+    })()`, (value) => value?.visible, 10000, 'sidebar auth helper');
+  }
+
   async readEmbeddedProviderLayout(provider) {
     const floatingTarget = await this.resolveFloatingTarget();
     const providerFrame = await this.resolveProviderFrameTarget(provider, floatingTarget);

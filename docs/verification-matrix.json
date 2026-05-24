@@ -196,7 +196,7 @@
     },
     {
       "id": "IB-INV-010",
-      "title": "Floating Auth Fallback",
+      "title": "Embedded Auth Fallback",
       "status": "covered",
       "user_task": "IB-TASK-009",
       "risk": "A provider sign-in wall, especially ChatGPT with Google OAuth, can trap the user inside the floating iframe with no working redirect path.",
@@ -208,6 +208,11 @@
             "command": "npm run test:acceptance"
           },
           {
+            "type": "acceptance",
+            "ref": "selection-sidepanel-auth-tab-fallback",
+            "command": "npm run test:acceptance"
+          },
+          {
             "type": "unit",
             "ref": "tests/service-worker.test.js",
             "command": "npm test -- --run tests/service-worker.test.js"
@@ -216,7 +221,7 @@
         "real_live": [],
         "manual": []
       },
-      "notes": "The provider-boundary acceptance scenario uses fake provider auth-wall mode and asserts the floating auth helper. The background normal-tab opening path is covered by tests/service-worker.test.js."
+      "notes": "The provider-boundary acceptance scenarios use fake provider auth-wall mode and assert both floating and docked auth helpers. The background normal-tab opening path is covered by tests/service-worker.test.js."
     },
     {
       "id": "IB-INV-011",
