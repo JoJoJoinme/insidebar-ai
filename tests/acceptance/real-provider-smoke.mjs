@@ -39,6 +39,7 @@ const providerId = (process.env.REAL_PROVIDER || 'chatgpt').trim().toLowerCase()
 const providerConfig = PROVIDER_CONFIG[providerId];
 const scenarioId = `real-provider-${providerId}-editor-ready`;
 const profileDir = process.env.CFT_PROFILE || path.join(repoRoot, 'dist/acceptance-real-profile');
+const requireEditorReady = process.env.REQUIRE_EDITOR_READY === '1';
 
 if (!providerConfig) {
   throw new Error(`Unsupported REAL_PROVIDER "${providerId}". Expected one of: ${Object.keys(PROVIDER_CONFIG).join(', ')}`);
@@ -99,14 +100,20 @@ async function runScenario() {
           }
         }) || null;
         const bodyText = (document.body?.innerText || '').toLowerCase();
+        const title = document.title || '';
+        const url = window.location.href;
         const authWallDetected = /log in|login|sign in|continue with|create account/.test(bodyText);
-        const blockedByChallenge = /unusual traffic|captcha|sorry\\//.test(bodyText) || window.location.href.includes('/sorry/');
+        const blockedByChallenge =
+          /unusual traffic|captcha|sorry\\/|just a moment|checking your browser|verify you are human|cloudflare/.test(bodyText) ||
+          /just a moment/i.test(title) ||
+          url.includes('/sorry/') ||
+          url.includes('__cf_chl');
         return {
           matchedSelector,
           authWallDetected,
           blockedByChallenge,
-          url: window.location.href,
-          title: document.title || ''
+          url,
+          title
         };
       })()`,
       (value) =>
@@ -127,6 +134,12 @@ async function runScenario() {
         providerFrameUrl: providerFrame.url,
         readiness: editorReady
       }, providerFrame, floatingTarget);
+      if (requireEditorReady) {
+        throw new Error(
+          `${scenarioId} requires editor_ready but got ${state}. ` +
+          `Use test:acceptance:real:interactive or log into CFT_PROFILE=${profileDir}.`
+        );
+      }
       return { state };
     }
 

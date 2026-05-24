@@ -30,6 +30,10 @@ The browser runner patches only a generated unpacked extension copy so provider 
   - opens a visible real-provider Chrome session with a persistent profile for login/setup.
 - `npm run test:acceptance:real`
   - runs a real-provider smoke scenario (no fake-provider patch) against one provider and classifies `editor_ready`, `auth_required`, or `anti_bot_blocked`.
+- `npm run test:acceptance:real:ready`
+  - runs the same real-provider smoke but fails unless the provider reaches `editor_ready`.
+- `npm run test:acceptance:real:interactive`
+  - opens the provider in the persistent test profile for login/challenge handling, then reruns the strict `editor_ready` smoke.
 - `npm run test:acceptance:browser-env`
   - runs a browser/profile smoke scenario for storage and startup-noise visibility.
 - `npm run test:e2e:cft`
@@ -41,11 +45,23 @@ Run acceptance scenarios serially unless every process has its own `EXT_DIR` and
 
 ## Real Provider Smoke
 
-Use this command when you need evidence that a real provider iframe/editor path still accepts injected prompts:
+Use the diagnostic command when you need to classify the current real-provider state:
 
 ```bash
 REAL_PROVIDER=chatgpt npm run test:acceptance:real:setup
 REAL_PROVIDER=chatgpt npm run test:acceptance:real
+```
+
+Use the strict command when the provider must already be logged in and usable:
+
+```bash
+REAL_PROVIDER=chatgpt npm run test:acceptance:real:ready
+```
+
+Use the interactive command when you want one flow that opens the provider for login, waits for you, then proves real editor injection:
+
+```bash
+REAL_PROVIDER=chatgpt npm run test:acceptance:real:interactive
 ```
 
 - Supported providers: `chatgpt`, `claude`, `gemini`, `google`, `grok`, `deepseek`
@@ -54,6 +70,7 @@ REAL_PROVIDER=chatgpt npm run test:acceptance:real
 - Artifacts are written under: `dist/acceptance-artifacts-real/real-provider-<provider>-editor-ready/`
 - This smoke requires a usable provider session/page state (for example, signed-in ChatGPT/Claude if they gate editors)
 - Some providers may return auth or anti-bot challenge pages in automation contexts; those runs are classified with artifacts instead of being treated as fake-provider regressions.
+- Your everyday Chrome or Edge login is not reused unless you explicitly point `CFT_PROFILE` at that browser profile and launch it safely. The default profile is a dedicated automation profile so tests do not mutate normal browsing data.
 
 ## Scenario Selection
 
