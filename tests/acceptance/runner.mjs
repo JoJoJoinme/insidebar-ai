@@ -13,16 +13,21 @@ if (selectedSpecs.length === 0) {
   throw new Error(`No acceptance scenarios matched${scenarioFilter ? `: ${scenarioFilter}` : ''}`);
 }
 
-const harness = new AcceptanceHarness();
+let harness = null;
 
 try {
-  await harness.start();
   for (const scenario of selectedSpecs) {
+    harness = new AcceptanceHarness();
+    await harness.start();
     await runScenario(scenario);
+    await harness.stop();
+    harness = null;
   }
   console.log(`acceptance passed: ${selectedSpecs.map((scenario) => scenario.id).join(', ')}`);
 } finally {
-  await harness.stop();
+  if (harness) {
+    await harness.stop();
+  }
 }
 
 async function runScenario(scenario) {

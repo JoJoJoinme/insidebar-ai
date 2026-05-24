@@ -23,7 +23,7 @@ export class AcceptanceHarness {
     this.fixtureDir = options.fixtureDir || path.join(repoRoot, 'tests/acceptance/fixtures');
     this.useFakeProviders = options.useFakeProviders !== false;
     this.preserveProfile = options.preserveProfile === true || process.env.ACCEPTANCE_PRESERVE_PROFILE === '1';
-    this.chromeArgs = Array.isArray(options.chromeArgs) ? options.chromeArgs : [];
+    this.chromeArgs = Array.isArray(options.chromeArgs) ? options.chromeArgs : readBrowserArgs();
     this.chromeProcess = null;
     this.fixtureServer = null;
     this.fixtureOrigin = null;
@@ -755,6 +755,7 @@ export class AcceptanceHarness {
 
   async evaluate(target, expression) {
     const client = await connect(target);
+    await client.send('Runtime.enable');
     const response = await client.send('Runtime.evaluate', {
       expression,
       awaitPromise: true,
@@ -857,7 +858,16 @@ async function connect(target) {
     send(method, params = {}) {
       const callId = ++id;
       socket.send(JSON.stringify({ id: callId, method, params }));
-      return new Promise((resolve) => pending.set(callId, resolve));
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          pending.delete(callId);
+          reject(new Error(`CDP command timed out: ${method}`));
+        }, 10000);
+        pending.set(callId, (message) => {
+          clearTimeout(timeout);
+          resolve(message);
+        });
+      });
     },
     close() {
       socket.close();
@@ -889,6 +899,24 @@ async function findFreePort() {
       server.close(() => resolve(address.port));
     });
   });
+}
+
+function readBrowserArgs() {
+  const raw = process.env.CFT_BROWSER_ARGS;
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')) {
+      return parsed;
+    }
+  } catch {
+    // Fall back to a simple delimiter format below.
+  }
+
+  return raw.split('|').map((item) => item.trim()).filter(Boolean);
 }
 
 function contentType(filePath) {
