@@ -18,13 +18,31 @@ const referenceText = document.getElementById('reference-text');
 const providerShell = document.getElementById('provider-shell');
 const providerTabs = document.getElementById('floating-provider-tabs');
 const status = document.getElementById('status');
+const providerAuthHelper = document.getElementById('provider-auth-helper');
+const providerAuthTitle = document.getElementById('provider-auth-title');
+const providerAuthMessage = document.getElementById('provider-auth-message');
+const openProviderTabButton = document.getElementById('open-provider-tab');
+const reloadProviderFrameButton = document.getElementById('reload-provider-frame');
 
 let providerIframe = null;
 let providerIframeId = null;
 let providerIframeReady = false;
 let providerIframeLoadPromise = null;
 let currentProviderUrl = null;
+let currentProviderHomeUrl = null;
+let currentProviderName = null;
 let pendingLocationRequestId = null;
+
+openProviderTabButton?.addEventListener('click', () => {
+  openProviderTab().catch((error) => {
+    console.warn('[insidebar.ai] Failed to open provider tab:', error);
+    setStatus(error.message || 'Unable to open the provider in a browser tab.');
+  });
+});
+
+reloadProviderFrameButton?.addEventListener('click', () => {
+  reloadProviderFrame();
+});
 
 window.addEventListener('message', (event) => {
   const data = event.data;
@@ -34,6 +52,11 @@ window.addEventListener('message', (event) => {
 
   if (data.type === 'INSIDEBAR_PROVIDER_LOCATION') {
     handleProviderLocation(event, data);
+    return;
+  }
+
+  if (data.type === 'INSIDEBAR_PROVIDER_AUTH_STATE') {
+    handleProviderAuthState(event, data);
     return;
   }
 
@@ -153,9 +176,12 @@ async function loadProvider(provider) {
   providerIframeReady = false;
   providerIframeId = provider.id;
   currentProviderUrl = provider.url;
+  currentProviderHomeUrl = provider.url;
+  currentProviderName = provider.name;
   document.body.dataset.providerUrl = provider.url;
   document.body.dataset.activeProvider = provider.id;
   providerShell.dataset.activeProvider = provider.id;
+  hideProviderAuthHelper();
   await renderProviderTabs(provider.id);
   providerIframe = document.createElement('iframe');
   providerIframe.src = provider.url;
@@ -308,6 +334,96 @@ function handleProviderLocation(event, data) {
     pendingLocationRequestId = null;
     notifyParent(providerIframe?.title ? `insidebar.ai Ask - ${providerIframe.title}` : undefined, providerIframeId, requestId);
   }
+}
+
+function handleProviderAuthState(event, data) {
+  if (!providerIframe?.contentWindow || event.source !== providerIframe.contentWindow) {
+    return;
+  }
+
+  if (data.provider && data.provider !== providerIframeId) {
+    return;
+  }
+
+  if (data.authRequired === false) {
+    hideProviderAuthHelper();
+    return;
+  }
+
+  if (data.authRequired !== true) {
+    return;
+  }
+
+  if (typeof data.url === 'string' && data.url.startsWith('http')) {
+    currentProviderUrl = data.url;
+    document.body.dataset.providerUrl = data.url;
+  }
+
+  showProviderAuthHelper(data.message);
+}
+
+function showProviderAuthHelper(message) {
+  if (!providerAuthHelper) {
+    return;
+  }
+
+  const providerName = currentProviderName || 'the provider';
+  providerAuthHelper.hidden = false;
+  providerAuthHelper.dataset.providerId = providerIframeId || '';
+  providerAuthTitle.textContent = `${providerName} needs sign-in`;
+  providerAuthMessage.textContent = message || 'Google and provider sign-in flows may be blocked inside the floating frame. Open it in a normal tab, sign in, then reload this floating view.';
+  if (openProviderTabButton) {
+    openProviderTabButton.textContent = `Open ${providerName} in tab`;
+  }
+}
+
+function hideProviderAuthHelper() {
+  if (providerAuthHelper) {
+    providerAuthHelper.hidden = true;
+    providerAuthHelper.dataset.providerId = '';
+  }
+}
+
+async function openProviderTab() {
+  const url = currentProviderUrl || currentProviderHomeUrl;
+  if (!url) {
+    throw new Error('Provider URL is not available.');
+  }
+
+  const response = await chrome.runtime.sendMessage({
+    action: 'openProviderTab',
+    payload: {
+      providerId: providerIframeId,
+      url
+    }
+  });
+
+  if (response?.success === false) {
+    throw new Error(response.error || 'Unable to open the provider tab.');
+  }
+}
+
+function reloadProviderFrame() {
+  hideProviderAuthHelper();
+  if (!providerIframe) {
+    return;
+  }
+
+  setStatus(`Reloading ${currentProviderName || 'provider'}...`);
+  providerIframeReady = false;
+  providerIframeLoadPromise = new Promise((resolve) => {
+    const finish = () => {
+      providerIframeReady = true;
+      status.hidden = true;
+      resolve();
+    };
+    providerIframe.addEventListener('load', finish, { once: true });
+    providerIframe.addEventListener('error', () => {
+      setStatus(`Failed to reload ${currentProviderName || 'provider'}.`);
+      resolve();
+    }, { once: true });
+  });
+  providerIframe.src = currentProviderHomeUrl || currentProviderUrl || providerIframe.src;
 }
 
 function setReference(payload) {

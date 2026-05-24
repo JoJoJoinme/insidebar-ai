@@ -830,12 +830,20 @@
   });
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message?.action !== 'openSelectionFloating') {
+    if (message?.action === 'openSelectionFloating') {
+      showFloatingWindow();
+      sendResponse({ success: true });
       return false;
     }
 
-    showFloatingWindow();
-    sendResponse({ success: true });
+    if (message?.action === 'closeSelectionFloating') {
+      hideFloatingWindow();
+      hideAskPanel();
+      hideToolbar();
+      sendResponse({ success: true });
+      return false;
+    }
+
     return false;
   });
 })();

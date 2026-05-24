@@ -281,6 +281,81 @@
     }
   }
 
+  let lastReportedAuthKey = '';
+
+  function findProviderEditor(provider) {
+    const selectors = PROVIDER_SELECTORS[provider] || [];
+    for (const selector of selectors) {
+      const element = findTextInputElement(selector);
+      if (element) {
+        return element;
+      }
+    }
+    return null;
+  }
+
+  function detectAuthWall(provider) {
+    if (!provider || !document.body || findProviderEditor(provider)) {
+      return null;
+    }
+
+    const bodyText = (document.body.innerText || document.body.textContent || '').slice(0, 12000);
+    if (!bodyText) {
+      return null;
+    }
+
+    const authPattern = /\b(log in|login|sign in|sign up|continue with|continue to|create account|get started)\b|登录|登入|注册|创建账号|继续使用|使用\s*Google/i;
+    if (!authPattern.test(bodyText)) {
+      return null;
+    }
+
+    return {
+      authRequired: true,
+      message: `${providerDisplayName(provider)} needs sign-in. Google and provider sign-in flows can be blocked inside the floating frame. Open it in a normal tab, sign in, then reload this floating view.`
+    };
+  }
+
+  function providerDisplayName(provider) {
+    const names = {
+      chatgpt: 'ChatGPT',
+      claude: 'Claude',
+      gemini: 'Gemini',
+      google: 'Google',
+      grok: 'Grok',
+      deepseek: 'DeepSeek',
+      copilot: 'Copilot'
+    };
+    return names[provider] || provider;
+  }
+
+  function notifyProviderAuthState(provider, options = {}) {
+    if (window.top === window || !provider) {
+      return;
+    }
+
+    const authState = detectAuthWall(provider);
+    if (!authState) {
+      return;
+    }
+
+    const key = `${provider}:${authState.authRequired}:${window.location.href}`;
+    if (!options.force && key === lastReportedAuthKey) {
+      return;
+    }
+    lastReportedAuthKey = key;
+
+    try {
+      window.parent.postMessage({
+        type: 'INSIDEBAR_PROVIDER_AUTH_STATE',
+        provider,
+        url: window.location.href,
+        ...authState
+      }, '*');
+    } catch (error) {
+      console.warn('[Text Injection] Failed to report provider auth state:', error);
+    }
+  }
+
   // Handle text injection message
   function handleTextInjection(event) {
     // Validate event data structure
@@ -356,6 +431,7 @@
           }
         } else {
           console.error(`[Text Injection] ${provider} editor not found`);
+          notifyProviderAuthState(provider, { force: true });
         }
       }, 1000);
     }
@@ -365,13 +441,26 @@
   const provider = detectProvider();
   applyEmbeddedProviderLayout(provider);
   notifyProviderLocation(provider);
+  notifyProviderAuthState(provider);
   window.addEventListener('message', handleTextInjection);
   window.addEventListener('message', (event) => {
     if (event.data?.type === 'INSIDEBAR_PROVIDER_LOCATION_REQUEST') {
       notifyProviderLocation(detectProvider(), { force: true });
     }
   });
-  window.addEventListener('popstate', () => notifyProviderLocation(detectProvider()));
-  window.addEventListener('hashchange', () => notifyProviderLocation(detectProvider()));
-  window.setInterval(() => notifyProviderLocation(detectProvider()), 1000);
+  window.addEventListener('popstate', () => {
+    const currentProvider = detectProvider();
+    notifyProviderLocation(currentProvider);
+    notifyProviderAuthState(currentProvider, { force: true });
+  });
+  window.addEventListener('hashchange', () => {
+    const currentProvider = detectProvider();
+    notifyProviderLocation(currentProvider);
+    notifyProviderAuthState(currentProvider, { force: true });
+  });
+  window.setInterval(() => {
+    const currentProvider = detectProvider();
+    notifyProviderLocation(currentProvider);
+    notifyProviderAuthState(currentProvider);
+  }, 1000);
 })();

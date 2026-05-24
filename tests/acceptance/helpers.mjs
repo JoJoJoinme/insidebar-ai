@@ -73,6 +73,7 @@ export class AcceptanceHarness {
     this.serviceWorker = await this.waitForTarget((target) =>
       target.type === 'service_worker' && target.url.includes('/background/service-worker.js')
     );
+    await this.closeBrowserStartupNoise();
   }
 
   async stop() {
@@ -97,6 +98,7 @@ export class AcceptanceHarness {
   }
 
   async applySettings(settings = {}) {
+    await this.closeBrowserStartupNoise();
     if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings: reset local pending');
     await this.evaluate(this.serviceWorker, storageCall('local', 'set', {
       pendingDockProvider: null,
@@ -107,6 +109,31 @@ export class AcceptanceHarness {
     if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings: sync set');
     await this.evaluate(this.serviceWorker, storageCall('sync', 'set', settings));
     if (process.env.ACCEPTANCE_TRACE === '1') console.log('apply settings done');
+  }
+
+  async closeBrowserStartupNoise() {
+    const targets = await this.getTargets();
+    const noisyTargets = targets.filter((target) =>
+      target.type === 'page' &&
+      /^(edge|chrome):\/\/sync-confirmation-dialog\//.test(target.url || '')
+    );
+
+    for (const target of noisyTargets) {
+      await Promise.race([
+        this.closePageTarget(target),
+        delay(1200)
+      ]);
+    }
+  }
+
+  async closePageTarget(target) {
+    try {
+      const client = await connect(target);
+      await client.send('Page.close');
+      client.close();
+    } catch {
+      await this.closeTarget(target.id);
+    }
   }
 
   beginScenario() {
@@ -251,6 +278,33 @@ export class AcceptanceHarness {
     })()`);
   }
 
+  async simulateFloatingAuthWall(provider, message) {
+    const floatingTarget = await this.resolveFloatingTarget();
+    const providerFrame = await this.resolveProviderFrameTarget(provider, floatingTarget);
+    await this.evaluate(providerFrame, `(() => {
+      window.parent.postMessage({
+        type: 'INSIDEBAR_PROVIDER_AUTH_STATE',
+        provider: '${escapeJs(provider)}',
+        authRequired: true,
+        message: ${JSON.stringify(message)},
+        url: window.location.href
+      }, '*');
+    })()`);
+    await delay(250);
+  }
+
+  async closeFloating() {
+    await this.clickByTestId(this.page, 'floating-close');
+    await delay(250);
+  }
+
+  async setSelectionToolbarOpenMode(openMode) {
+    await this.evaluate(this.serviceWorker, storageCall('sync', 'set', {
+      selectionToolbarOpenMode: openMode
+    }));
+    await delay(400);
+  }
+
   async dockFloating() {
     await this.clickByTestId(this.page, 'floating-dock');
     this.sidebar = await this.waitForTarget((target) =>
@@ -345,6 +399,20 @@ export class AcceptanceHarness {
       autoSubmit: document.body.dataset.lastAutoSubmit || null,
       promptLength: Number(document.body.dataset.lastPromptLength || 0)
     }))()`, (value) => value?.autoSubmit !== null, 10000, 'floating prompt injection state');
+  }
+
+  async readFloatingAuthHelper() {
+    this.floating ||= await this.resolveFloatingTarget();
+    return this.waitForEvaluation(this.floating, `(() => {
+      const helper = document.querySelector('[data-testid="floating-auth-helper"]');
+      const button = document.querySelector('[data-testid="floating-open-provider-tab"]');
+      return {
+        visible: !!helper && !helper.hidden,
+        providerId: helper?.dataset.providerId || null,
+        text: helper?.textContent.trim() || '',
+        buttonText: button?.textContent.trim() || ''
+      };
+    })()`, (value) => value?.visible, 10000, 'floating auth helper');
   }
 
   async readEmbeddedProviderLayout(provider) {

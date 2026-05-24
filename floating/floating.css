@@ -132,3 +132,68 @@ body {
 #status[hidden] {
   display: none;
 }
+
+#provider-auth-helper {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+
+#provider-auth-helper[hidden] {
+  display: none;
+}
+
+.provider-auth-title {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.provider-auth-message {
+  margin-top: 2px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.provider-auth-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.provider-auth-actions button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #111827;
+  background: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.provider-auth-actions button:first-child {
+  border-color: #2563eb;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.provider-auth-actions button:hover,
+.provider-auth-actions button:focus-visible {
+  outline: none;
+  filter: brightness(0.96);
+}

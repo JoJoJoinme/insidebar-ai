@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 describe('service-worker', () => {
   // Mock Chrome APIs
   beforeEach(() => {
+    vi.resetModules();
     global.chrome = {
       runtime: {
         onInstalled: { addListener: vi.fn() },
@@ -46,7 +47,8 @@ describe('service-worker', () => {
         onRemoved: { addListener: vi.fn() }
       },
       tabs: {
-        sendMessage: vi.fn(() => Promise.resolve({ success: true }))
+        sendMessage: vi.fn(() => Promise.resolve({ success: true })),
+        create: vi.fn(() => Promise.resolve({ id: 42 }))
       }
     };
   });
@@ -139,6 +141,60 @@ describe('service-worker', () => {
       expect(validMessage.action).toBeTruthy();
       expect(validMessage.payload).toBeTruthy();
       expect(typeof validMessage.payload).toBe('object');
+    });
+
+    it('should open provider URLs in a normal tab from floating auth helper', async () => {
+      const { chrome } = global;
+      await import('../background/service-worker.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = vi.fn();
+      const handledAsync = listener(
+        {
+          action: 'openProviderTab',
+          payload: {
+            providerId: 'chatgpt',
+            url: 'https://chatgpt.com'
+          }
+        },
+        { tab: { windowId: 7 } },
+        sendResponse
+      );
+
+      expect(handledAsync).toBe(true);
+      await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({ lastSelectedProvider: 'chatgpt' });
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: 'https://chatgpt.com/',
+        active: true,
+        windowId: 7
+      });
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: true,
+        tabId: 42,
+        url: 'https://chatgpt.com/'
+      });
+    });
+
+    it('should close page floating UI when the side panel reports opened', async () => {
+      const { chrome } = global;
+      await import('../background/service-worker.js');
+
+      const listener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = vi.fn();
+      const handledAsync = listener(
+        { action: 'sidePanelOpened', payload: {} },
+        { tab: { id: 99, windowId: 7 } },
+        sendResponse
+      );
+
+      expect(handledAsync).toBe(true);
+      await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(99, {
+        action: 'closeSelectionFloating',
+        payload: {}
+      });
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });
 

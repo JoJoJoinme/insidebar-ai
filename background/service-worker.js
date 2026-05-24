@@ -47,6 +47,35 @@ function isEnabledProviderId(providerId, enabledProviders = PROVIDER_IDS) {
   return PROVIDER_IDS.includes(providerId) && enabledProviders.includes(providerId);
 }
 
+async function openTrackedSidePanel(windowId, tabId = null) {
+  await chrome.sidePanel.open({ windowId });
+  sidePanelState.set(windowId, true);
+  await closeSelectionFloatingInTab(tabId);
+}
+
+async function closeSelectionFloatingInTab(tabId) {
+  if (!tabId) {
+    return;
+  }
+
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      action: 'closeSelectionFloating',
+      payload: {}
+    });
+  } catch {
+    // The active tab may not have the selection toolbar content script.
+  }
+}
+
+async function markSidePanelOpened(sender = {}) {
+  const tab = sender.tab || await getActiveWebTab();
+  if (tab?.windowId) {
+    sidePanelState.set(tab.windowId, true);
+  }
+  await closeSelectionFloatingInTab(tab?.id);
+}
+
 async function sendTextToProvider(windowId, providerId, selectedText, options = {}) {
   const promptId = `provider-prompt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const payload = {
@@ -82,7 +111,7 @@ async function loadShortcutSetting() {
 }
 
 // T070: Helper to toggle side panel
-async function toggleSidePanel(windowId, action = null) {
+async function toggleSidePanel(windowId, tabId = null) {
   if (!windowId) {
     return;
   }
@@ -92,8 +121,7 @@ async function toggleSidePanel(windowId, action = null) {
   if (!isOpen) {
     // Open the side panel
     try {
-      await chrome.sidePanel.open({ windowId });
-      sidePanelState.set(windowId, true);
+      await openTrackedSidePanel(windowId, tabId);
     } catch (error) {
       // Silently fail - side panel may not be available
     }
@@ -197,8 +225,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       const providerId = info.menuItemId.replace('provider-', '');
 
       // Open side panel and track state
-      await chrome.sidePanel.open({ windowId: tab.windowId });
-      sidePanelState.set(tab.windowId, true);
+      await openTrackedSidePanel(tab.windowId, tab.id);
 
       // Get source URL placement setting
       const settings = await chrome.storage.sync.get({ sourceUrlPlacement: 'end' });
@@ -257,8 +284,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       }
     } else if (info.menuItemId === 'open-prompt-library') {
       // Open side panel with prompt library and track state
-      await chrome.sidePanel.open({ windowId: tab.windowId });
-      sidePanelState.set(tab.windowId, true);
+      await openTrackedSidePanel(tab.windowId, tab.id);
 
       // Get source URL placement setting
       const settings = await chrome.storage.sync.get({ sourceUrlPlacement: 'end' });
@@ -331,7 +357,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  await toggleSidePanel(tab.windowId);
+  await toggleSidePanel(tab.windowId, tab.id);
 });
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -355,6 +381,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sidePanelState.set(sender.tab.windowId, false);
     }
     sendResponse({ success: true });
+  } else if (message.action === 'sidePanelOpened') {
+    markSidePanelOpened(sender).then(() => {
+      sendResponse({ success: true });
+    }).catch((error) => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true;
   } else if (message.action === 'resetSidePanelStateForTests') {
     sidePanelState.clear();
     sendResponse({ success: true });
@@ -393,6 +426,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     });
     return true;
+  } else if (message.action === 'openProviderTab') {
+    handleOpenProviderTab(sender, message.payload).then(sendResponse);
+    return true;
   }
   return true;
 });
@@ -402,8 +438,7 @@ async function handleSelectionToolbarSend(payload, sender) {
     return { success: false, error: 'Missing selected text or tab context' };
   }
 
-  await chrome.sidePanel.open({ windowId: sender.tab.windowId });
-  sidePanelState.set(sender.tab.windowId, true);
+  await openTrackedSidePanel(sender.tab.windowId, sender.tab.id);
 
   const settings = await chrome.storage.sync.get({
     enabledProviders: PROVIDER_IDS,
@@ -477,8 +512,7 @@ async function handleOpenSidePanelFromFloating(sender, payload = {}, options = {
     return { success: false, error: 'Missing tab context' };
   }
 
-  await chrome.sidePanel.open({ windowId });
-  sidePanelState.set(windowId, true);
+  await openTrackedSidePanel(windowId, sender.tab?.id);
 
   const settings = await chrome.storage.sync.get({ enabledProviders: PROVIDER_IDS });
   const enabledProviders = settings.enabledProviders.filter(providerId => PROVIDER_IDS.includes(providerId));
@@ -528,6 +562,39 @@ async function handleOpenSidePanelViewFromFloating(payload = {}, sender) {
   }, 150);
 
   return { success: true, view };
+}
+
+async function handleOpenProviderTab(sender, payload = {}) {
+  if (!payload?.url || typeof payload.url !== 'string') {
+    return { success: false, error: 'Missing provider URL' };
+  }
+
+  let url;
+  try {
+    url = new URL(payload.url);
+  } catch {
+    return { success: false, error: 'Invalid provider URL' };
+  }
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    return { success: false, error: 'Provider URL must be http or https' };
+  }
+
+  if (isEnabledProviderId(payload.providerId)) {
+    await chrome.storage.sync.set({ lastSelectedProvider: payload.providerId });
+  }
+
+  const createOptions = {
+    url: url.href,
+    active: true
+  };
+
+  if (sender.tab?.windowId) {
+    createOptions.windowId = sender.tab.windowId;
+  }
+
+  const tab = await chrome.tabs.create(createOptions);
+  return { success: true, tabId: tab?.id || null, url: url.href };
 }
 
 async function getActiveWebTab() {
@@ -640,8 +707,7 @@ async function handleSaveConversation(conversationData, sender) {
       if (!isOpen && windowId) {
         try {
           // This will work because it's within the user gesture flow
-          await chrome.sidePanel.open({ windowId });
-          sidePanelState.set(windowId, true);
+          await openTrackedSidePanel(windowId, sender.tab.id);
 
           // Wait for sidebar to load, then switch to chat history
           setTimeout(() => {
@@ -679,8 +745,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     if (!isOpen) {
       // Open and switch to Prompt Library
       try {
-        await chrome.sidePanel.open({ windowId });
-        sidePanelState.set(windowId, true);
+        await openTrackedSidePanel(windowId, tab.id);
 
         // Wait for sidebar to load, then switch to Prompt Library
         setTimeout(() => {
@@ -709,8 +774,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     if (!isOpen) {
       // Sidebar not open - open it (it will auto-focus)
       try {
-        await chrome.sidePanel.open({ windowId });
-        sidePanelState.set(windowId, true);
+        await openTrackedSidePanel(windowId, tab.id);
       } catch (error) {
         // Silently handle errors
       }

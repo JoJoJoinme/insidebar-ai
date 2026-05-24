@@ -82,10 +82,22 @@ async function runAction(step) {
     case 'switchFloatingProvider':
       await harness.switchFloatingProvider(required(step.provider, 'switchFloatingProvider.provider'));
       break;
+    case 'simulateFloatingAuthWall':
+      await harness.simulateFloatingAuthWall(
+        required(step.provider, 'simulateFloatingAuthWall.provider'),
+        step.message || 'Sign in to continue with this provider.'
+      );
+      break;
     case 'submitAskQuestion':
       await harness.submitAskQuestion(required(step.question, 'submitAskQuestion.question'), {
         waitForFloating: step.waitForFloating !== false
       });
+      break;
+    case 'closeFloating':
+      await harness.closeFloating();
+      break;
+    case 'setSelectionToolbarOpenMode':
+      await harness.setSelectionToolbarOpenMode(required(step.mode, 'setSelectionToolbarOpenMode.mode'));
       break;
     case 'dockFloating':
       await harness.dockFloating();
@@ -176,6 +188,21 @@ async function runAssertion(step) {
       const layout = await harness.readFloatingLayout();
       assert(layout.activeProvider === step.provider,
         `expected floating provider ${step.provider}, got ${layout.activeProvider}`);
+      break;
+    }
+    case 'floatingAuthHelper': {
+      const state = await harness.readFloatingAuthHelper();
+      assert(state.visible, `floating auth helper should be visible: ${JSON.stringify(state)}`);
+      assert(state.providerId === step.provider,
+        `expected floating auth helper provider ${step.provider}, got ${state.providerId}`);
+      if (step.textIncludes) {
+        assert(state.text.includes(step.textIncludes),
+          `expected floating auth helper text to include "${step.textIncludes}", got "${state.text}"`);
+      }
+      if (step.buttonText) {
+        assert(state.buttonText === step.buttonText,
+          `expected floating auth helper button "${step.buttonText}", got "${state.buttonText}"`);
+      }
       break;
     }
     case 'floatingReferenceQuestion': {
@@ -312,7 +339,10 @@ function assertStepShape(step, baseKeys, label) {
     selectText: ['action', 'target'],
     clickToolbarAction: ['action', 'name', 'waitForFloating'],
     switchFloatingProvider: ['action', 'provider'],
+    simulateFloatingAuthWall: ['action', 'provider', 'message'],
     submitAskQuestion: ['action', 'question', 'waitForFloating'],
+    closeFloating: ['action'],
+    setSelectionToolbarOpenMode: ['action', 'mode'],
     dockFloating: ['action']
   };
   const assertionKeys = {
@@ -325,6 +355,7 @@ function assertStepShape(step, baseKeys, label) {
     embeddedProviderHeaderHidden: ['assert', 'provider'],
     embeddedChatgptHeaderHidden: ['assert'],
     floatingProvider: ['assert', 'provider'],
+    floatingAuthHelper: ['assert', 'provider', 'textIncludes', 'buttonText'],
     floatingReferenceQuestion: ['assert', 'includes'],
     floatingAutoSubmit: ['assert', 'value', 'minPromptLength'],
     providerReceivedPrompt: ['assert', 'provider', 'includes', 'excludes', 'autoSubmit', 'submitted', 'minPromptLength'],

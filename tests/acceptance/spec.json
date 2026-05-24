@@ -91,6 +91,30 @@
     ]
   },
   {
+    "id": "selection-sidepanel-closes-floating",
+    "intent": "Opening the docked side panel while a floating provider is visible hides the floating surface",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "floating",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible", "openMode": "floating" },
+      { "action": "clickToolbarAction", "name": "Send" },
+      { "assert": "floatingVisible" },
+      { "action": "setSelectionToolbarOpenMode", "mode": "sidePanel" },
+      { "action": "selectText", "target": "secondaryParagraph" },
+      { "assert": "selectionToolbarVisible", "openMode": "sidePanel" },
+      { "action": "clickToolbarAction", "name": "Send", "waitForFloating": false },
+      { "assert": "sidebarProvider", "provider": "chatgpt" },
+      { "assert": "floatingHidden" }
+    ]
+  },
+  {
     "id": "selection-sidepanel-direct-send",
     "intent": "Selected text sends directly to the sidebar when sidePanel open mode is configured",
     "runner": "cft",
@@ -260,6 +284,33 @@
         "submitted": false,
         "minPromptLength": 80
       }
+    ]
+  },
+  {
+    "id": "selection-floating-auth-tab-fallback",
+    "intent": "When a floating provider needs sign-in, the user gets a normal-tab fallback for auth flows that cannot run inside an iframe",
+    "runner": "cft",
+    "settings": {
+      "selectionToolbarOpenMode": "floating",
+      "lastSelectedProvider": "chatgpt",
+      "rememberLastProvider": true,
+      "enabledProviders": ["chatgpt", "claude", "gemini", "google", "grok", "deepseek"]
+    },
+    "steps": [
+      { "action": "openPage", "fixture": "article-page.html" },
+      { "action": "selectText", "target": "mainParagraph" },
+      { "assert": "selectionToolbarVisible", "openMode": "floating" },
+      { "action": "clickToolbarAction", "name": "Send" },
+      { "assert": "floatingVisible" },
+      { "action": "simulateFloatingAuthWall", "provider": "chatgpt", "message": "Sign in to continue with ChatGPT." },
+      {
+        "assert": "floatingAuthHelper",
+        "provider": "chatgpt",
+        "textIncludes": "Sign in to continue with ChatGPT.",
+        "buttonText": "Open ChatGPT in tab"
+      },
+      { "action": "closeFloating" },
+      { "assert": "floatingHidden" }
     ]
   }
 ]

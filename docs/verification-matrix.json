@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-05-12",
+  "updated": "2026-05-24",
   "project": "insidebar-ai",
   "invariants": [
     {
@@ -193,6 +193,49 @@
         "manual": []
       },
       "notes": "The scenario switches to Claude, selects a different paragraph, then asserts Claude receives the new selection."
+    },
+    {
+      "id": "IB-INV-010",
+      "title": "Floating Auth Fallback",
+      "status": "covered",
+      "user_task": "IB-TASK-009",
+      "risk": "A provider sign-in wall, especially ChatGPT with Google OAuth, can trap the user inside the floating iframe with no working redirect path.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-floating-auth-tab-fallback",
+            "command": "npm run test:acceptance"
+          },
+          {
+            "type": "unit",
+            "ref": "tests/service-worker.test.js",
+            "command": "npm test -- --run tests/service-worker.test.js"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The acceptance scenario simulates a provider auth wall and asserts the floating auth helper. The background normal-tab opening path is covered by tests/service-worker.test.js."
+    },
+    {
+      "id": "IB-INV-011",
+      "title": "Dock Float Mutual Exclusion",
+      "status": "covered",
+      "user_task": "IB-TASK-010",
+      "risk": "The docked side panel and the page floating window can remain visible at the same time, leaving duplicate provider sessions and confusing controls.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-sidepanel-closes-floating",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The acceptance scenario opens a floating provider, opens the side panel through the background path, then asserts the floating surface is hidden."
     }
   ]
 }

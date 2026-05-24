@@ -11,7 +11,10 @@ const actions = new Set([
   'selectText',
   'clickToolbarAction',
   'switchFloatingProvider',
+  'simulateFloatingAuthWall',
   'submitAskQuestion',
+  'closeFloating',
+  'setSelectionToolbarOpenMode',
   'dockFloating'
 ]);
 
@@ -20,7 +23,10 @@ const actionFields = {
   selectText: ['action', 'target'],
   clickToolbarAction: ['action', 'name', 'waitForFloating'],
   switchFloatingProvider: ['action', 'provider'],
+  simulateFloatingAuthWall: ['action', 'provider', 'message'],
   submitAskQuestion: ['action', 'question', 'waitForFloating'],
+  closeFloating: ['action'],
+  setSelectionToolbarOpenMode: ['action', 'mode'],
   dockFloating: ['action']
 };
 
@@ -34,6 +40,7 @@ const assertions = new Set([
   'embeddedProviderHeaderHidden',
   'embeddedChatgptHeaderHidden',
   'floatingProvider',
+  'floatingAuthHelper',
   'floatingReferenceQuestion',
   'floatingAutoSubmit',
   'providerReceivedPrompt',
@@ -54,6 +61,7 @@ const assertionFields = {
   embeddedProviderHeaderHidden: ['assert', 'provider'],
   embeddedChatgptHeaderHidden: ['assert'],
   floatingProvider: ['assert', 'provider'],
+  floatingAuthHelper: ['assert', 'provider', 'textIncludes', 'buttonText'],
   floatingReferenceQuestion: ['assert', 'includes'],
   floatingAutoSubmit: ['assert', 'value', 'minPromptLength'],
   providerReceivedPrompt: ['assert', 'provider', 'includes', 'excludes', 'autoSubmit', 'submitted', 'minPromptLength'],
@@ -164,8 +172,16 @@ function validateAction(context, step) {
     }
   }
 
-  if (step.action === 'switchFloatingProvider') {
+  if (['switchFloatingProvider', 'simulateFloatingAuthWall'].includes(step.action)) {
     requireProvider(step.provider, `${context}.provider`);
+  }
+
+  if (step.action === 'simulateFloatingAuthWall' && step.message != null && typeof step.message !== 'string') {
+    fail(`${context}.message must be string when provided`);
+  }
+
+  if (step.action === 'setSelectionToolbarOpenMode' && !['floating', 'sidePanel'].includes(step.mode)) {
+    fail(`${context}.mode must be floating or sidePanel`);
   }
 
   if (step.action === 'submitAskQuestion') {
@@ -198,8 +214,17 @@ function validateAssertion(context, step) {
     fail(`${context}.openMode must be floating or sidePanel when provided`);
   }
 
-  if (['embeddedProviderHeaderHidden', 'floatingProvider', 'providerReceivedPrompt', 'sidebarProviderReceivedPrompt', 'storageProvider', 'sidebarProvider'].includes(step.assert)) {
+  if (['embeddedProviderHeaderHidden', 'floatingProvider', 'floatingAuthHelper', 'providerReceivedPrompt', 'sidebarProviderReceivedPrompt', 'storageProvider', 'sidebarProvider'].includes(step.assert)) {
     requireProvider(step.provider, `${context}.provider`);
+  }
+
+  if (step.assert === 'floatingAuthHelper') {
+    if (step.textIncludes != null && typeof step.textIncludes !== 'string') {
+      fail(`${context}.textIncludes must be string when provided`);
+    }
+    if (step.buttonText != null && typeof step.buttonText !== 'string') {
+      fail(`${context}.buttonText must be string when provided`);
+    }
   }
 
   if (step.assert === 'askPanelVisible' && step.quoteIncludes != null && typeof step.quoteIncludes !== 'string') {

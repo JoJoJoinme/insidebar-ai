@@ -59,6 +59,7 @@ function isDarkTheme() {
 
 // T013: Initialize sidebar
 async function init() {
+  notifySidePanelOpened();
   await applyTheme();
   await initializeLanguage();  // Initialize i18n
   translatePage();  // Translate all static text
@@ -266,6 +267,14 @@ async function switchProvider(providerId, options = {}) {
     switchProvider(next.providerId, next.options);
   } else {
     pendingProviderSwitch = null;
+  }
+}
+
+function notifySidePanelOpened() {
+  try {
+    chrome.runtime.sendMessage({ action: 'sidePanelOpened', payload: {} }).catch(() => {});
+  } catch {
+    // The sidebar can still run if the background page is not ready yet.
   }
 }
 

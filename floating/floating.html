@@ -15,6 +15,18 @@
 
   <div id="provider-shell" data-testid="floating-provider-shell">
     <div id="status" data-testid="floating-status">Waiting for a question...</div>
+    <div id="provider-auth-helper" data-testid="floating-auth-helper" hidden>
+      <div>
+        <div id="provider-auth-title" class="provider-auth-title">Sign in required</div>
+        <div id="provider-auth-message" class="provider-auth-message">
+          Sign in in a normal browser tab, then reload this floating view.
+        </div>
+      </div>
+      <div class="provider-auth-actions">
+        <button id="open-provider-tab" type="button" data-testid="floating-open-provider-tab">Open provider in tab</button>
+        <button id="reload-provider-frame" type="button" data-testid="floating-reload-provider-frame">Reload</button>
+      </div>
+    </div>
   </div>
 
   <div id="floating-provider-tabs" data-testid="floating-provider-tabs" aria-label="AI providers"></div>
