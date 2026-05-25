@@ -24,6 +24,7 @@ build/
 *.tmp
 *.bak
 *.log
+.tmp/
 
 # Environment files
 .env
@@ -41,6 +42,7 @@ coverage/
 # User data (don't commit personal data)
 user-data/
 test-profiles/
+.chrome-profile/
 
 # Development tools
 .claude/
@@ -60,8 +62,10 @@ docs/
 !docs/
 docs/*
 !docs/behavior-contract.md
+!docs/real-browser-debugging.md
 !docs/verification-matrix.json
 !docs/workboard.md
 !scripts/
 scripts/*
 !scripts/check-quality-gate.mjs
+!scripts/debug-real-browser-mcp.mjs

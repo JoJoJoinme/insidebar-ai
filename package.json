@@ -17,6 +17,7 @@
     "test:acceptance:real:ready": "node tests/acceptance/real-provider-ready.mjs",
     "test:acceptance:real:interactive": "node tests/acceptance/real-provider-interactive.mjs",
     "test:acceptance:browser-env": "node tests/acceptance/browser-env-smoke.mjs",
+    "debug:real-browser": "node scripts/debug-real-browser-mcp.mjs",
     "test:e2e:cft": "npm run test:acceptance",
     "test:required": "npm run test:quality-gate && npm test -- --run && npm run test:acceptance"
   },

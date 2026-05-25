@@ -36,6 +36,8 @@ The browser runner patches only a generated unpacked extension copy so provider 
   - opens the provider in the persistent test profile for login/challenge handling, then reruns the strict `editor_ready` smoke.
 - `npm run test:acceptance:browser-env`
   - runs a browser/profile smoke scenario for storage and startup-noise visibility.
+- `npm run debug:real-browser`
+  - launches Chrome through Chrome DevTools MCP pipe mode, installs this unpacked extension into `.chrome-profile`, and classifies real provider/editor state separately from extension toolbar/floating behavior.
 - `npm run test:e2e:cft`
   - alias of `test:acceptance` for compatibility.
 - `npm run test:required`
@@ -71,6 +73,22 @@ REAL_PROVIDER=chatgpt npm run test:acceptance:real:interactive
 - This smoke requires a usable provider session/page state (for example, signed-in ChatGPT/Claude if they gate editors)
 - Some providers may return auth or anti-bot challenge pages in automation contexts; those runs are classified with artifacts instead of being treated as fake-provider regressions.
 - Your everyday Chrome or Edge login is not reused unless you explicitly point `CFT_PROFILE` at that browser profile and launch it safely. The default profile is a dedicated automation profile so tests do not mutate normal browsing data.
+
+## Real Browser MCP Smoke
+
+Use this when you need to verify that a real Chrome profile can load the unpacked extension and reach the same user journey shape:
+
+```bash
+npm run debug:real-browser
+```
+
+This uses `chrome-devtools-mcp` in pipe mode and `install_extension`; do not rely on bare `chrome.exe --load-extension` as proof that recent Chrome versions actually loaded the extension. The default profile is `.chrome-profile`, which is ignored by git and can keep provider login state. The smoke does not auto-submit real prompts to external providers.
+
+Provider tab rotation and concrete send semantics remain deterministic acceptance coverage. The key scenario is:
+
+```bash
+npm run test:acceptance -- --scenario selection-floating-provider-rotation-sends
+```
 
 ## Scenario Selection
 

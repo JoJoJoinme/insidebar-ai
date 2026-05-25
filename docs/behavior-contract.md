@@ -46,6 +46,18 @@ When the user configures selection toolbar open mode as sidebar, Send and Ask mu
 
 After the user switches provider in floating mode, later selection toolbar actions must inject into the selected provider, not the original default provider.
 
+### IB-TASK-009: Escape Embedded Provider Auth Walls
+
+When a provider sign-in wall appears inside floating or docked iframe mode, the extension must offer a normal-tab fallback instead of treating the wall as a prompt-injection failure.
+
+### IB-TASK-010: Keep Docked And Floating Surfaces Exclusive
+
+When the user docks floating content or opens the side panel, the page-level floating window must not remain visible as a duplicate provider surface.
+
+### IB-TASK-011: Rotate Providers And Send Real Actions
+
+When the user changes providers in floating mode and then chooses Send, Explain, Translate, Summary, or Ask, the active provider must receive the corresponding current prompt and action semantics.
+
 ## Invariants
 
 ### IB-INV-001: Floating Chrome Stability
@@ -83,6 +95,18 @@ Explain, Translate, and Summary must send their specific prompt instructions rat
 ### IB-INV-009: Switched Floating Provider Injection
 
 After switching the floating provider, the next selected-text prompt must be injected into that provider and use the current selection.
+
+### IB-INV-010: Embedded Auth Fallback
+
+Provider auth walls must surface a normal-tab fallback from both floating and docked views.
+
+### IB-INV-011: Dock Float Mutual Exclusion
+
+Floating and docked provider surfaces must not remain visible at the same time.
+
+### IB-INV-012: Provider Rotation Send Coverage
+
+Provider tab rotation must be covered with concrete sends across multiple providers and toolbar actions, not only with visual active-tab assertions.
 
 ## Baseline Classification
 

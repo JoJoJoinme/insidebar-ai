@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-05-24",
+  "updated": "2026-05-26",
   "project": "insidebar-ai",
   "invariants": [
     {
@@ -116,11 +116,16 @@
             "type": "file",
             "ref": "tests/acceptance/real-provider-smoke.mjs",
             "command": "REAL_PROVIDER=chatgpt npm run test:acceptance:real"
+          },
+          {
+            "type": "file",
+            "ref": "scripts/debug-real-browser-mcp.mjs",
+            "command": "npm run debug:real-browser"
           }
         ],
         "manual": []
       },
-      "notes": "Run npm run test:acceptance:real:setup once to create a usable live-provider profile, then run the real-provider smoke command. The smoke records editor_ready, auth_required, or anti_bot_blocked so provider/session blockers are not confused with fake-provider regressions."
+      "notes": "Run npm run test:acceptance:real:setup once to create a usable live-provider profile, then run the real-provider smoke command. The smoke records editor_ready, auth_required, or anti_bot_blocked so provider/session blockers are not confused with fake-provider regressions. The DevTools MCP smoke installs the unpacked extension into a dedicated real Chrome profile and classifies provider state separately from extension toolbar/floating behavior."
     },
     {
       "id": "IB-INV-007",
@@ -241,6 +246,25 @@
         "manual": []
       },
       "notes": "The acceptance scenario opens a floating provider, opens the side panel through the background path, then asserts the floating surface is hidden."
+    },
+    {
+      "id": "IB-INV-012",
+      "title": "Provider Rotation Send Coverage",
+      "status": "covered",
+      "user_task": "IB-TASK-011",
+      "risk": "Provider switching can look correct visually while later Send, Explain, Translate, Summary, or Ask actions still target the previous provider or reuse the wrong prompt template.",
+      "proof": {
+        "deterministic": [
+          {
+            "type": "acceptance",
+            "ref": "selection-floating-provider-rotation-sends",
+            "command": "npm run test:acceptance"
+          }
+        ],
+        "real_live": [],
+        "manual": []
+      },
+      "notes": "The acceptance scenario rotates through Claude, Gemini, Google, Grok, and DeepSeek and asserts provider-specific prompt receipt for Explain, Translate, Summary, Ask auto-submit, and raw Send."
     }
   ]
 }
